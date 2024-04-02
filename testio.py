@@ -1,10 +1,4 @@
 from ctypes import *
-import time
-
-import tkinter as tk
-
-# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-# import matplotlib.pyplot as plt
 
 error_code = 0
 lib = cdll.LoadLibrary(
@@ -42,23 +36,3 @@ if devcount > 0:
 
 # 关闭所有光谱仪
 lib.seabreeze_close_all_spectrometers(error_code)
-
-
-# # Create figure and plot
-# fig, ax = plt.subplots()
-# ax.plot(x, y, marker='o', linestyle='-')
-# ax.set_xlabel('X')
-# ax.set_ylabel('Y')
-# ax.set_title('X-Y Plot')
-
-# # Create tkinter window
-# root = tk.Tk()
-# root.title("X-Y Plot")
-
-# # Embed the matplotlib plot into tkinter window
-# canvas = FigureCanvasTkAgg(fig, master=root)
-# canvas.draw()
-# canvas.get_tk_widget().pack()
-
-# # Start tkinter event loop
-# root.mainloop()
