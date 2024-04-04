@@ -1,30 +1,59 @@
 import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
+from tkinter import ttk, filedialog
+import os
 
 
-def plot_xy(x_values, y_values):
-    # Create a tkinter window
+class TabbedWidgetApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Tabbed Widget")
+
+        # Create a Notebook widget
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill="both", expand=True)
+
+        # First tab: List files from the folder
+        self.tab1 = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab1, text="List Files")
+
+        # Listbox to display filenames
+        self.file_listbox = tk.Listbox(
+            self.tab1, selectmode="multiple", width=50, height=10
+        )
+        self.file_listbox.pack(pady=10)
+
+        # Button to plot selected files
+        self.plot_button = ttk.Button(
+            self.tab1, text="Plot", command=self.plot_selected_files
+        )
+        self.plot_button.pack()
+
+        # Load files button
+        self.load_button = ttk.Button(
+            self.tab1, text="Load Files", command=self.load_files
+        )
+        self.load_button.pack()
+
+    def load_files(self):
+        folder_path = filedialog.askdirectory()
+        if folder_path:
+            self.file_listbox.delete(0, tk.END)
+            files = os.listdir(folder_path)
+            for file in files:
+                self.file_listbox.insert(tk.END, file)
+
+    def plot_selected_files(self):
+        selected_files = [
+            self.file_listbox.get(idx) for idx in self.file_listbox.curselection()
+        ]
+        print("Selected files:", selected_files)
+
+
+def main():
     root = tk.Tk()
-    root.title("X-Y Plot")
-
-    # Create a figure and plot
-    fig, ax = plt.subplots()
-    ax.plot(x_values, y_values, marker="o", linestyle="-")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_title("X-Y Plot")
-
-    # Embed the matplotlib plot into tkinter window
-    canvas = FigureCanvasTkAgg(fig, master=root)
-    canvas.draw()
-    canvas.get_tk_widget().pack()
-
-    # Start tkinter event loop
+    app = TabbedWidgetApp(root)
     root.mainloop()
 
 
-# Example usage
-x_values = [1, 2, 3, 4, 5]
-y_values = [2, 3, 5, 7, 11]
-plot_xy(x_values, y_values)
+if __name__ == "__main__":
+    main()
