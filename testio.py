@@ -1,4 +1,5 @@
 from ctypes import *
+import matplotlib.pyplot as plt
 
 error_code = 0
 lib = cdll.LoadLibrary(
@@ -28,7 +29,7 @@ if devcount > 0:
     while n < 5:
         lib.seabreeze_get_formatted_spectrum(index, error_code, lightspec, 2048)
         y = list(lightspec)
-        print(y[:5])
+
         n = n + 1
 
     # 关闭激光器
