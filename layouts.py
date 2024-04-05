@@ -2,6 +2,14 @@ import tkinter as tk
 from tkinter import ttk
 from tabs import create_tab_ration
 from intensity import create_tab_intensity
+from file_io import load_file
+
+
+def load_data(self):
+    # Open file dialog to select data file
+    file_path = "../data/dark-240404-115932.csv"
+    x, y = load_file(file_path)
+    return x, y
 
 
 def main():
