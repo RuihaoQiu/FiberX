@@ -26,27 +26,29 @@ class FiberXApp:
         self.plot_frame = tk.Frame(self.tab1)
         self.plot_frame.pack()
 
+        plt.style.use("ggplot")
+
+        self.fig, self.ax = plt.subplots()
+        # Set x and y labels
+        self.ax.set_xlabel("Wavelength")
+        self.ax.set_ylabel("Ration")
+
+        plt.subplots_adjust(
+            top=0.925, bottom=0.16, left=0.11, right=0.90, hspace=0.2, wspace=0.2
+        )
+
+        file_path = "../data/dark-240404-115932.csv"
+        self.x, self.y = load_file(file_path)
+        # Initialize variables
+        (self.dot_line,) = self.ax.plot(self.x, self.y, "-", label="data")
+
         # Create a button to load data
         self.load_button = tk.Button(
             self.tab1,
             text="Load Data",
-            command=self.load_data,
+            command=self.update_plot,
         )
-        self.load_button.pack()
-
-        # Initialize variables
-        self.x = []
-        self.y = []
-        self.fig, self.ax = plt.subplots()
-        (self.dot_line,) = self.ax.plot([], [], "-", label="data")
-
-    def load_data(self):
-        # Open file dialog to select data file
-        file_path = "../data/dark-240404-115932.csv"
-        self.x, self.y = load_file(file_path)
-
-        # Plot the data
-        self.update_plot()
+        self.load_button.pack(side=tk.LEFT)
 
     def update_plot(self):
 
@@ -55,8 +57,7 @@ class FiberXApp:
         self.dot_line.set_data(self.x, self.y)
         self.ax.relim()
         self.ax.autoscale_view()
-        # ax.plot(x_wavelength, y_ref, marker=".", linestyle="-")
-        # ax.plot(x_wavelength, y_realtime, marker=".", linestyle="-")
+
         self.ax.set_xlabel("Wave Length")
         self.ax.set_ylabel("Intensity")
 
@@ -67,30 +68,6 @@ class FiberXApp:
         style = ttk.Style()
         style.configure("TNotebook.Tab", padding=(20, 10), font=(14))
         self.root.mainloop()
-
-
-# def main():
-#     root = tk.Tk()
-#     root.title("FiberX")
-
-#     # Sample data
-#     x_values = [1, 2, 3, 4, 5]
-#     y_values = [2, 3, 5, 7, 11]
-#     y_dark = [2, 3, 5, 7, 11]
-#     y_ref = [12, 13, 15, 17, 21]
-#     y_real = [7, 8, 10, 12, 16]
-
-#     # Create a Notebook widget
-#     notebook = ttk.Notebook(root)
-#     notebook.pack(fill="both", expand=True, padx=20, pady=20)
-
-#     # Create tabs with plots
-#     create_tab_intensity(notebook, x_values, y_dark, y_ref, y_real)
-#     create_tab_ration(notebook, x_values, [y + 1 for y in y_values])
-
-#     style = ttk.Style()
-#     style.configure("TNotebook.Tab", padding=(20, 10), font=(14))
-#     root.mainloop()
 
 
 def main():
