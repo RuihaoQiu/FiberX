@@ -20,8 +20,8 @@ def plot_curve(x, y):
 
 
 def create_tab_intensity(parent, x, y):
-    # tab = ttk.Frame(parent)
-    # parent.add(tab, text="光谱")
+    tab = ttk.Frame(parent)
+    parent.add(tab, text="光谱")
     fig = plot_curve(x, y)
     canvas = FigureCanvasTkAgg(fig, master=tab)
     canvas.draw()

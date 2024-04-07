@@ -8,6 +8,8 @@ import pandas as pd
 import random
 from ctypes import *
 
+from file_io import load_file
+
 
 class FiberX:
     def __init__(self, root):
@@ -23,6 +25,15 @@ class FiberX:
         self.root.geometry("1600x1200")
 
         plt.style.use("ggplot")
+        plt.rcParams.update(
+            {
+                "axes.labelsize": 20,
+                "xtick.labelsize": 18,
+                "ytick.labelsize": 18,
+                "legend.fontsize": 18,
+                "lines.linewidth": 3,
+            }
+        )
 
         # Create a Notebook widget
         self.notebook = ttk.Notebook(self.root, style="TNotebook")
@@ -47,15 +58,35 @@ class FiberX:
         self.canvas1 = FigureCanvasTkAgg(self.fig1, master=self.tab1)
         self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        (self.dot_line1,) = self.ax1.plot([], [], "-", label="Raw Data")
+        (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
+        (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
+        (self.realtime,) = self.ax1.plot([], [], "-", label="Real time")
 
-        self.start_button_1 = tk.Button(
+        self.ax1.legend()
+
+        self.load_dark_botton = tk.Button(
             self.tab1,
-            text="Load data",
-            command=self.update_plot_1,
+            text="Load dark spec",
+            command=self.load_dark,
             font=("TkDefaultFont", 20),
         )
-        self.start_button_1.pack(side=tk.LEFT)
+        self.load_dark_botton.pack(side=tk.LEFT)
+
+        self.load_ref_botton = tk.Button(
+            self.tab1,
+            text="Load reference spec",
+            command=self.load_ref,
+            font=("TkDefaultFont", 20),
+        )
+        self.load_ref_botton.pack(side=tk.LEFT)
+
+        self.load_real_botton = tk.Button(
+            self.tab1,
+            text="Load realtime spec",
+            command=self.update_real,
+            font=("TkDefaultFont", 20),
+        )
+        self.load_real_botton.pack(side=tk.LEFT)
 
     def init_tab2(self):
         self.tab2 = ttk.Frame(self.notebook)
@@ -107,13 +138,30 @@ class FiberX:
         )
         self.start_button3.pack(side=tk.LEFT)
 
-    def update_plot_1(self):
-        self.x = [1, 2, 3, 4, 5]
-        self.y = [2, 3, 4, 5, 6]
-        self.dot_line1.set_data(self.x, self.y)
+    def load_dark(self):
+        file_path = "../data/dark-240404-115932.csv"
+        x, y = load_file(file_path)
+        self.dark.set_data(x, y)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.canvas1.draw()
+
+    def load_ref(self):
+        file_path = "../data/bright-240404-115932.csv"
+        x, y = load_file(file_path)
+        self.reference.set_data(x, y)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.canvas1.draw()
+
+    def update_real(self):
+        x = [1, 2, 3, 4, 5]
+        y = [random.uniform(1, 10) for _ in range(5)]
+        self.realtime.set_data(x, y)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.canvas1.draw()
+        self.root.after(1000, self.update_real)
 
     def update_plot_2(self):
         self.x = [1, 2, 3, 4, 5]
