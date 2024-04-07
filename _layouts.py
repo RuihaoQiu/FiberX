@@ -8,25 +8,31 @@ import pandas as pd
 import random
 from ctypes import *
 
-error_code = 0
-lib = cdll.LoadLibrary(
-    r"C:\Users\ruihq\Desktop\ProfZ\sdk4.1\[4] USB Dome\[3] python demo for windows\SeaBreeze.dll"
-)
 
-# 打开所有光谱仪
-devcount = lib.seabreeze_open_all_spectrometers(error_code)
-
-
-class RealTimePlotApp:
+class FiberX:
     def __init__(self, root):
+
+        # Create a style for the Notebook
+        style = ttk.Style()
+
+        # Configure the font for the Notebook tab buttons
+        style.configure("TNotebook.Tab", padding=(10, 10), font=("TkDefaultFont", 20))
+
         self.root = root
-        self.root.title("Real-Time Plot")
+        self.root.title("FiberX")
+        self.root.geometry("1600x1200")
+
+        plt.style.use("ggplot")
 
         # Create a Notebook widget
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill="both", expand=True, padx=20, pady=20)
+        self.notebook = ttk.Notebook(self.root, style="TNotebook")
+        self.notebook.pack(fill="both", expand=True, padx=30, pady=30)
 
-        # First tab: Load data and plot
+        self.init_tab1()
+        self.init_tab2()
+        self.init_tab3()
+
+    def init_tab1(self):
         self.tab1 = ttk.Frame(self.notebook)
         self.notebook.add(self.tab1, text="光谱")
 
@@ -34,34 +40,101 @@ class RealTimePlotApp:
         self.plot_frame = tk.Frame(self.tab1)
         self.plot_frame.pack()
 
-        plt.style.use("ggplot")
+        self.fig1, self.ax1 = plt.subplots()
+        self.ax1.set_xlabel("Wavelength")
+        self.ax1.set_ylabel("Intensity")
 
-        self.figure, self.ax = plt.subplots()
-        # Set x and y labels
-        self.ax.set_xlabel("Wavelength")
-        self.ax.set_ylabel("Intensity")
+        self.canvas1 = FigureCanvasTkAgg(self.fig1, master=self.tab1)
+        self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        # plt.subplots_adjust(
-        #     top=0.925, bottom=0.16, left=0.11, right=0.90, hspace=0.2, wspace=0.2
-        # )
+        (self.dot_line1,) = self.ax1.plot([], [], "-", label="Raw Data")
 
-        self.canvas = FigureCanvasTkAgg(self.figure, master=self.tab1)
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-
-        (self.dot_line,) = self.ax.plot([], [], "-", label="Raw Data")
-
-        self.start_button = tk.Button(
-            self.tab1, text="Load dark", command=self.start_plot
+        self.start_button_1 = tk.Button(
+            self.tab1,
+            text="Load data",
+            command=self.update_plot_1,
+            font=("TkDefaultFont", 20),
         )
-        self.start_button.pack(side=tk.LEFT)
+        self.start_button_1.pack(side=tk.LEFT)
 
-    def start_plot(self):
-        print("hey")
+    def init_tab2(self):
+        self.tab2 = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab2, text="吸收")
+
+        # Create a frame to contain the plot
+        self.plot_frame = tk.Frame(self.tab2)
+        self.plot_frame.pack()
+
+        self.fig2, self.ax2 = plt.subplots()
+        self.ax2.set_xlabel("Wavelength")
+        self.ax2.set_ylabel("Intensity")
+
+        self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.tab2)
+        self.canvas2.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        (self.dot_line2,) = self.ax2.plot([], [], "-", label="Raw Data")
+
+        self.start_button_2 = tk.Button(
+            self.tab2,
+            text="Load data",
+            command=self.update_plot_2,
+            font=("TkDefaultFont", 20),
+        )
+        self.start_button_2.pack(side=tk.LEFT)
+
+    def init_tab3(self):
+        self.tab3 = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab3, text="实时")
+
+        # Create a frame to contain the plot
+        self.plot_frame = tk.Frame(self.tab3)
+        self.plot_frame.pack()
+
+        self.fig3, self.ax3 = plt.subplots()
+        self.ax3.set_xlabel("Wavelength")
+        self.ax3.set_ylabel("Intensity")
+
+        self.canvas3 = FigureCanvasTkAgg(self.fig3, master=self.tab3)
+        self.canvas3.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        (self.dot_line3,) = self.ax3.plot([], [], "-", label="Raw Data")
+
+        self.start_button3 = tk.Button(
+            self.tab3,
+            text="Load data",
+            command=self.update_plot_3,
+            font=("TkDefaultFont", 20),
+        )
+        self.start_button3.pack(side=tk.LEFT)
+
+    def update_plot_1(self):
+        self.x = [1, 2, 3, 4, 5]
+        self.y = [2, 3, 4, 5, 6]
+        self.dot_line1.set_data(self.x, self.y)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.canvas1.draw()
+
+    def update_plot_2(self):
+        self.x = [1, 2, 3, 4, 5]
+        self.y = [1, 4, 9, 16, 25]
+        self.dot_line2.set_data(self.x, self.y)
+        self.ax2.relim()
+        self.ax2.autoscale_view()
+        self.canvas2.draw()
+
+    def update_plot_3(self):
+        self.x = [1, 2, 3, 4, 5]
+        self.y = [1, 3, 5, 7, 9]
+        self.dot_line3.set_data(self.x, self.y)
+        self.ax3.relim()
+        self.ax3.autoscale_view()
+        self.canvas3.draw()
 
 
 def main():
     root = tk.Tk()
-    app = RealTimePlotApp(root)
+    app = FiberX(root)
     root.mainloop()
 
 
