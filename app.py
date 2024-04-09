@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 import random
 from ctypes import *
+import os
 
-from file_io import load_file
+from file_io import load_file, save_file_dark, save_file_bright
 
 
 class FiberX:
@@ -49,7 +50,10 @@ class FiberX:
 
         # Create a frame to contain the plot
         self.plot_frame = tk.Frame(self.tab1)
-        self.plot_frame.pack()
+        self.plot_frame.pack(side=tk.RIGHT)
+
+        button_frame = tk.Frame(self.tab1)
+        button_frame.pack(side=tk.LEFT, padx=10)
 
         self.fig1, self.ax1 = plt.subplots()
         self.ax1.set_xlabel("Wavelength")
@@ -64,29 +68,89 @@ class FiberX:
 
         self.ax1.legend()
 
-        self.load_dark_botton = tk.Button(
-            self.tab1,
-            text="Load dark spec",
-            command=self.load_dark,
-            font=("TkDefaultFont", 20),
-        )
-        self.load_dark_botton.pack(side=tk.LEFT)
+        # Create a button frame
 
-        self.load_ref_botton = tk.Button(
-            self.tab1,
-            text="Load reference spec",
-            command=self.load_ref,
-            font=("TkDefaultFont", 20),
-        )
-        self.load_ref_botton.pack(side=tk.LEFT)
+        label = tk.Label(button_frame, text="暗光谱:")
+        label.pack(anchor=tk.W)
+
+        var = tk.StringVar()
+        dark_folder = "../data/dark/"
+        filenames = os.listdir(dark_folder)
+        for file in filenames:
+            b = tk.Checkbutton(
+                button_frame,
+                text=file,
+                variable=var,
+                onvalue=file,
+                command=lambda var=var: self.load_dark(var),
+            )
+            b.deselect()
+            b.pack(anchor=tk.W)
+
+        label = tk.Label(button_frame, text="参考光谱:")
+        label.pack(anchor=tk.W)
+
+        var = tk.StringVar()
+        ref_folder = "../data/reference/"
+        filenames = os.listdir(ref_folder)
+        for file in filenames:
+            b = tk.Checkbutton(
+                button_frame,
+                text=file,
+                variable=var,
+                onvalue=file,
+                command=lambda var=var: self.load_ref(var),
+            )
+            b.deselect()
+            b.pack(anchor=tk.W)
+
+        # self.load_dark_botton = tk.Button(
+        #     self.tab1,
+        #     text="加载暗光谱",
+        #     command=self.load_dark,
+        #     font=("TkDefaultFont", 20),
+        # )
+        # self.load_dark_botton.pack(side=tk.LEFT)
+
+        # self.load_ref_botton = tk.Button(
+        #     self.tab1,
+        #     text="加载基础光谱",
+        #     command=self.load_ref,
+        #     font=("TkDefaultFont", 20),
+        # )
+        # self.load_ref_botton.pack(side=tk.LEFT)
 
         self.load_real_botton = tk.Button(
             self.tab1,
-            text="Load realtime spec",
+            text="实时光谱",
             command=self.update_real,
             font=("TkDefaultFont", 20),
         )
         self.load_real_botton.pack(side=tk.LEFT)
+
+        self.save_dark_botton = tk.Button(
+            self.tab1,
+            text="保存暗光谱",
+            command=self.save_dark,
+            font=("TkDefaultFont", 20),
+        )
+        self.save_dark_botton.pack(side=tk.LEFT)
+
+        self.save_ref_botton = tk.Button(
+            self.tab1,
+            text="保存基础光谱",
+            command=self.save_ref,
+            font=("TkDefaultFont", 20),
+        )
+        self.save_ref_botton.pack(side=tk.LEFT)
+
+        # check_button = tk.Button(
+        #     self.tab1,
+        #     text="Checklist",
+        #     command=self.load_dark,
+        #     font=("TkDefaultFont", 20),
+        # )
+        # check_button.pack(pady=5)
 
     def init_tab2(self):
         self.tab2 = ttk.Frame(self.notebook)
@@ -138,30 +202,36 @@ class FiberX:
         )
         self.start_button3.pack(side=tk.LEFT)
 
-    def load_dark(self):
-        file_path = "../data/dark-240404-115932.csv"
-        x, y = load_file(file_path)
+    def load_dark(self, file_path):
+        folder = "../data/dark/"
+        x, y = load_file(folder + file_path.get())
         self.dark.set_data(x, y)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.canvas1.draw()
 
-    def load_ref(self):
-        file_path = "../data/bright-240404-115932.csv"
-        x, y = load_file(file_path)
+    def load_ref(self, file_path):
+        folder = "../data/dark/"
+        x, y = load_file(folder + file_path.get())
         self.reference.set_data(x, y)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.canvas1.draw()
 
     def update_real(self):
-        x = [1, 2, 3, 4, 5]
-        y = [random.uniform(1, 10) for _ in range(5)]
-        self.realtime.set_data(x, y)
+        self.x = [1, 2, 3, 4, 5]
+        self.y = [random.uniform(1, 10) for _ in range(5)]
+        self.realtime.set_data(self.x, self.y)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.canvas1.draw()
         self.root.after(1000, self.update_real)
+
+    def save_dark(self):
+        save_file_dark(self.x, self.y)
+
+    def save_ref(self):
+        save_file_bright(self.x, self.y)
 
     def update_plot_2(self):
         self.x = [1, 2, 3, 4, 5]
