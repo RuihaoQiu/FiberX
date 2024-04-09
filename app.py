@@ -12,18 +12,16 @@ import os
 from file_io import load_file, save_file_dark, save_file_bright
 
 
-class FiberX:
+class FiberX(ttk.Frame):
     def __init__(self, root):
-
-        # Create a style for the Notebook
-        style = ttk.Style()
-
-        # Configure the font for the Notebook tab buttons
-        style.configure("TNotebook.Tab", padding=(10, 10), font=("TkDefaultFont", 20))
-
+        ttk.Frame.__init__(self)
         self.root = root
         self.root.title("FiberX")
-        self.root.geometry("1600x1200")
+        # self.root.geometry("1600x1200")
+
+        # # Set the initial theme
+        # self.root.tk.call("source", "azure/azure.tcl")
+        # self.root.tk.call("set_theme", "dark")
 
         plt.style.use("ggplot")
         plt.rcParams.update(
@@ -33,12 +31,13 @@ class FiberX:
                 "ytick.labelsize": 18,
                 "legend.fontsize": 18,
                 "lines.linewidth": 3,
+                "figure.figsize": (12, 8),
             }
         )
 
         # Create a Notebook widget
-        self.notebook = ttk.Notebook(self.root, style="TNotebook")
-        self.notebook.pack(fill="both", expand=True, padx=30, pady=30)
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill="both", expand=True)
 
         self.init_tab1()
         self.init_tab2()
@@ -46,21 +45,58 @@ class FiberX:
 
     def init_tab1(self):
         self.tab1 = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab1, text="光谱")
+        self.notebook.add(
+            self.tab1,
+            text="光谱",
+            sticky="nsew",
+        )
+
+        for index in [0, 1]:
+            self.tab1.columnconfigure(index=index, weight=1)
+            self.tab1.rowconfigure(index=index, weight=1)
+
+        dark_frame = ttk.LabelFrame(self.tab1, text="暗光谱", padding=(20, 10))
+        dark_frame.grid(
+            row=0,
+            column=0,
+            padx=(20, 10),
+            pady=(20, 10),
+            sticky="nsew",
+        )
+
+        ref_frame = ttk.LabelFrame(self.tab1, text="参考光谱", padding=(20, 10))
+        ref_frame.grid(
+            row=1,
+            column=0,
+            padx=(20, 10),
+            pady=(20, 10),
+            sticky="nsew",
+        )
 
         # Create a frame to contain the plot
-        self.plot_frame = tk.Frame(self.tab1)
-        self.plot_frame.pack(side=tk.RIGHT)
-
-        button_frame = tk.Frame(self.tab1)
-        button_frame.pack(side=tk.LEFT, padx=10)
+        self.plot_frame = ttk.Frame(self.tab1)
+        self.plot_frame.grid(
+            row=0,
+            column=1,
+            padx=(20, 10),
+            pady=(20, 10),
+            sticky="nsew",
+            rowspan=2,
+            columnspan=2,
+        )
 
         self.fig1, self.ax1 = plt.subplots()
         self.ax1.set_xlabel("Wavelength")
         self.ax1.set_ylabel("Intensity")
 
-        self.canvas1 = FigureCanvasTkAgg(self.fig1, master=self.tab1)
-        self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.canvas1 = FigureCanvasTkAgg(self.fig1, master=self.plot_frame)
+        self.canvas1.get_tk_widget().grid(
+            row=0,
+            column=0,
+            padx=(20, 20),
+            pady=(20, 20),
+            sticky="nsew",
+        )
 
         (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
         (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
@@ -68,17 +104,12 @@ class FiberX:
 
         self.ax1.legend()
 
-        # Create a button frame
-
-        label = tk.Label(button_frame, text="暗光谱:")
-        label.pack(anchor=tk.W)
-
         var = tk.StringVar()
         dark_folder = "../data/dark/"
         filenames = os.listdir(dark_folder)
         for file in filenames:
             b = tk.Checkbutton(
-                button_frame,
+                dark_frame,
                 text=file,
                 variable=var,
                 onvalue=file,
@@ -87,15 +118,12 @@ class FiberX:
             b.deselect()
             b.pack(anchor=tk.W)
 
-        label = tk.Label(button_frame, text="参考光谱:")
-        label.pack(anchor=tk.W)
-
         var = tk.StringVar()
         ref_folder = "../data/reference/"
         filenames = os.listdir(ref_folder)
         for file in filenames:
             b = tk.Checkbutton(
-                button_frame,
+                ref_frame,
                 text=file,
                 variable=var,
                 onvalue=file,
@@ -120,29 +148,26 @@ class FiberX:
         # )
         # self.load_ref_botton.pack(side=tk.LEFT)
 
-        self.load_real_botton = tk.Button(
+        self.load_real_botton = ttk.Button(
             self.tab1,
             text="实时光谱",
             command=self.update_real,
-            font=("TkDefaultFont", 20),
         )
-        self.load_real_botton.pack(side=tk.LEFT)
+        # self.load_real_botton.pack(side=tk.LEFT)
 
-        self.save_dark_botton = tk.Button(
+        self.save_dark_botton = ttk.Button(
             self.tab1,
             text="保存暗光谱",
             command=self.save_dark,
-            font=("TkDefaultFont", 20),
         )
-        self.save_dark_botton.pack(side=tk.LEFT)
+        # self.save_dark_botton.pack(side=tk.LEFT)
 
-        self.save_ref_botton = tk.Button(
+        self.save_ref_botton = ttk.Button(
             self.tab1,
             text="保存基础光谱",
             command=self.save_ref,
-            font=("TkDefaultFont", 20),
         )
-        self.save_ref_botton.pack(side=tk.LEFT)
+        # self.save_ref_botton.pack(side=tk.LEFT)
 
         # check_button = tk.Button(
         #     self.tab1,
@@ -151,6 +176,10 @@ class FiberX:
         #     font=("TkDefaultFont", 20),
         # )
         # check_button.pack(pady=5)
+
+        # Sizegrip
+        self.sizegrip = ttk.Sizegrip(self.tab1)
+        self.sizegrip.grid(row=100, column=100, padx=(0, 5), pady=(0, 5))
 
     def init_tab2(self):
         self.tab2 = ttk.Frame(self.notebook)
@@ -250,11 +279,31 @@ class FiberX:
         self.canvas3.draw()
 
 
-def main():
+# def main():
+#     root = tk.Tk()
+#     app = FiberX(root)
+#     root.mainloop()
+
+if __name__ == "__main__":
     root = tk.Tk()
+    root.title("")
+
+    # Simply set the theme
+    root.tk.call("source", "azure/azure.tcl")
+    root.tk.call("set_theme", "light")
+
     app = FiberX(root)
+    app.pack(fill="both", expand=True)
+
+    # Set a minsize for the window, and place it in the middle
+    root.update()
+    root.minsize(root.winfo_width(), root.winfo_height())
+    x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
+    y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
+    root.geometry("+{}+{}".format(x_cordinate, y_cordinate - 20))
+
     root.mainloop()
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
