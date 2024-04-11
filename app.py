@@ -42,9 +42,10 @@ class App(ttk.Frame):
     def setup_buttons(self):
         self.build_input_block()
         self.build_display_block()
+        self.build_control_block()
 
     def setup_plots(self):
-        pass
+        self.build_plot_block()
 
     def setup_tab1(self):
         self.tab1 = ttk.Frame(self.notebook)
@@ -180,7 +181,7 @@ class App(ttk.Frame):
 
         # Create the entry widget
         entry = ttk.Entry(input_frame)
-        entry.grid(row=0, column=1, padx=30, pady=(0, 10), sticky="ew")
+        entry.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="ew")
 
     def build_display_block(self):
         input_frame = ttk.LabelFrame(self, text="实时数据", padding=(20, 10))
@@ -192,22 +193,61 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
-        label = ttk.Label(input_frame, text="实时:")
+        label = ttk.Label(input_frame, text="波峰:")
         label.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
         label = ttk.Label(input_frame, text="123")
         label.grid(row=0, column=1, padx=30, pady=(0, 10), sticky="ew")
 
-    def build_plot_block(self):
-        self.plot_frame = ttk.Frame(self.tab1)
-        # self.plot_frame.columnconfigure(index=0, weight=1)
-        self.plot_frame.grid(
-            row=0,
-            column=0,
+    def build_control_block(self):
+        control_frame = ttk.LabelFrame(self, text="控制", padding=(20, 10))
+        control_frame.grid(
+            row=2,
+            column=1,
             padx=(10, 10),
             pady=(10, 10),
             sticky="nsew",
-            rowspan=2,
-            columnspan=2,
+        )
+
+        start_button = ttk.Button(
+            control_frame,
+            text="开始时序",
+            command=self.save_dark,
+            style="Accent.TButton",
+        )
+        start_button.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
+
+        save_button = ttk.Button(
+            control_frame,
+            text="保存数据",
+            command=self.save_ref,
+            style="Accent.TButton",
+        )
+        save_button.grid(row=2, column=0, padx=30, pady=(0, 10), sticky="ew")
+
+    def build_plot_block(self):
+        # Panedwindow
+        self.paned = ttk.PanedWindow(self)
+        self.paned.grid(row=0, column=2, pady=(25, 5), sticky="nsew", rowspan=3)
+
+        # Pane #1
+        # self.pane_1 = ttk.Frame(self, padding=100)
+        # self.paned.add(self.pane_1, weight=3)
+
+        self.notebook = ttk.Notebook(self.paned)
+        self.notebook.pack(fill="both", expand=True)
+
+        self.tab1 = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab1, text="光谱")
+
+        self.plot_frame = ttk.Frame(self.tab1)
+        self.plot_frame.grid(
+            row=0,
+            column=0,
+            padx=(150, 150),
+            pady=(200, 10),
+            sticky="ew",
+            rowspan=3,
+            columnspan=3,
         )
 
         self.fig1, self.ax1 = plt.subplots()
@@ -215,8 +255,8 @@ class App(ttk.Frame):
         self.ax1.set_ylabel("Intensity")
 
         self.canvas1 = FigureCanvasTkAgg(self.fig1, master=self.plot_frame)
-        self.canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.canvas1.draw()
+        self.canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
         (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
@@ -256,49 +296,6 @@ class App(ttk.Frame):
     def stop_real(self):
         self.running = False
 
-    # def setup_tab2(self):
-    #     self.tab2 = ttk.Frame(self.notebook)
-    #     for index in [0, 1, 2]:
-    #         self.tab2.columnconfigure(index=index, weight=1)
-    #     #     self.tab2.rowconfigure(index=index, weight=1)
-    #     self.tab1.rowconfigure(index=0, weight=1)
-    #     # self.tab1.rowconfigure(index=1, weight=1)
-    #     self.notebook.add(self.tab2, text="吸收谱")
-
-    #     # Create a Frame for buttons
-    #     self.buttons_frame2 = ttk.Frame(self.tab2, padding=(10, 10, 10, 10))
-    #     self.buttons_frame2.grid(row=0, column=0, padx=10, pady=(30, 10), sticky="nsew")
-    #     # self.buttons_frame2.columnconfigure(index=0, weight=1)
-
-    #     self.save_button = ttk.Button(
-    #         self.buttons_frame2,
-    #         text="保存很多的很多数据",
-    #         command=self.save_absorb,
-    #         style="Accent.TButton",
-    #     )
-    #     self.save_button.grid(row=0, column=0, padx=5, pady=(0, 10), sticky="ew")
-
-    #     # plot frame
-    #     self.plot_frame2 = ttk.Frame(self.tab2)
-    #     self.plot_frame2.grid(
-    #         row=0,
-    #         column=1,
-    #         padx=(10, 10),
-    #         pady=(10, 10),
-    #         sticky="nsew",
-    #         rowspan=2,
-    #         columnspan=2,
-    #     )
-
-    #     self.fig2, self.ax2 = plt.subplots()
-    #     self.ax2.set_xlabel("X")
-    #     self.ax2.set_ylabel("Y")
-    #     (self.realtime,) = self.ax2.plot([], [], "-", label="Real time")
-    #     self.ax2.legend()
-
-    #     self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.plot_frame2)
-    #     self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-    #     self.canvas2.draw()
     def setup_tab2(self):
         self.tab2 = ttk.Frame(self.notebook)
         self.tab2.columnconfigure(index=0, weight=1)
