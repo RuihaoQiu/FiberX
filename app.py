@@ -8,20 +8,31 @@ import os
 import ctypes
 import random
 
-from file_io import load_file, save_dark_file, save_ref_file
+from device_io import SignalGenerator
+
+from file_io import (
+    load_file,
+    save_dark_file,
+    save_bright_file,
+    dark_folder,
+    bright_folder,
+)
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
+plt.rcParams.update(
+    {
+        "figure.figsize": (8, 5),
+    }
+)
 
 
 class App(ttk.Frame):
     def __init__(self, parent):
         ttk.Frame.__init__(self)
+        self.running = True
+        self.int_time = 500
 
-        self.dark_folder = "../data/dark/"
-        self.ref_folder = "../data/reference/"
-
-        # # Make the app responsive
         for index in [0, 1, 2]:
             self.columnconfigure(index=index, weight=1)
             self.rowconfigure(index=index, weight=1)
@@ -30,17 +41,18 @@ class App(ttk.Frame):
         self.setup_buttons()
         self.setup_plots()
 
+        self.signal_generator = SignalGenerator(int_time=self.int_time)
         # Sizegrip
         self.sizegrip = ttk.Sizegrip(self)
         self.sizegrip.grid(row=100, column=100, padx=(0, 3), pady=(0, 3))
 
     def setup_files(self):
         self.build_dark_block()
-        self.build_ref_block()
-        self.build_io_block()
+        self.build_bright_block()
+        self.build_input_block()
 
     def setup_buttons(self):
-        self.build_input_block()
+        self.build_io_block()
         self.build_display_block()
         self.build_control_block()
 
@@ -58,7 +70,7 @@ class App(ttk.Frame):
         )
 
         var = tk.StringVar()
-        filenames = os.listdir(self.dark_folder)
+        filenames = os.listdir(dark_folder)
         for file in filenames:
             b = ttk.Checkbutton(
                 dark_frame,
@@ -69,7 +81,7 @@ class App(ttk.Frame):
             )
             b.pack(anchor=tk.W)
 
-    def build_ref_block(self):
+    def build_bright_block(self):
         ref_frame = ttk.LabelFrame(self, text="参考光谱", padding=(20, 10))
         ref_frame.grid(
             row=1,
@@ -80,26 +92,42 @@ class App(ttk.Frame):
         )
 
         var = tk.StringVar()
-        filenames = os.listdir(self.ref_folder)
+        filenames = os.listdir(bright_folder)
         for file in filenames:
             b = ttk.Checkbutton(
                 ref_frame,
                 text=file,
                 variable=var,
                 onvalue=file,
-                command=lambda var=var: self.load_ref(var),
+                command=lambda var=var: self.load_bright(var),
             )
             b.pack(anchor=tk.W)
 
     def build_io_block(self):
         buttons_frame = ttk.LabelFrame(self, text="保存文件", padding=(20, 10))
         buttons_frame.grid(
-            row=2,
-            column=0,
+            row=0,
+            column=1,
             padx=(10, 10),
             pady=(10, 10),
             sticky="nsew",
         )
+
+        start_button = ttk.Button(
+            buttons_frame,
+            text="开始实时",
+            command=self.start_real,
+            style="Accent.TButton",
+        )
+        start_button.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
+
+        stop_button = ttk.Button(
+            buttons_frame,
+            text="停止",
+            command=self.stop_real,
+            style="Accent.TButton",
+        )
+        stop_button.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="ew")
 
         save_dark_button = ttk.Button(
             buttons_frame,
@@ -107,21 +135,21 @@ class App(ttk.Frame):
             command=self.save_dark,
             style="Accent.TButton",
         )
-        save_dark_button.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
+        save_dark_button.grid(row=2, column=0, padx=30, pady=(0, 10), sticky="ew")
 
-        save_ref_button = ttk.Button(
+        save_bright_button = ttk.Button(
             buttons_frame,
             text="保存亮光谱",
-            command=self.save_ref,
+            command=self.save_bright,
             style="Accent.TButton",
         )
-        save_ref_button.grid(row=2, column=0, padx=30, pady=(0, 10), sticky="ew")
+        save_bright_button.grid(row=3, column=0, padx=30, pady=(0, 10), sticky="ew")
 
     def build_input_block(self):
         input_frame = ttk.LabelFrame(self, text="设置", padding=(20, 10))
         input_frame.grid(
-            row=0,
-            column=1,
+            row=2,
+            column=0,
             padx=(10, 10),
             pady=(10, 10),
             sticky="nsew",
@@ -160,7 +188,7 @@ class App(ttk.Frame):
         start_button = ttk.Button(
             control_frame,
             text="开始时序",
-            command=self.save_dark,
+            command=self.start_real,
             style="Accent.TButton",
         )
         start_button.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
@@ -168,7 +196,7 @@ class App(ttk.Frame):
         save_button = ttk.Button(
             control_frame,
             text="保存数据",
-            command=self.save_ref,
+            command=self.save_bright,
             style="Accent.TButton",
         )
         save_button.grid(row=2, column=0, padx=30, pady=(0, 10), sticky="ew")
@@ -200,8 +228,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(150, 150),
-            pady=(200, 10),
+            padx=(30, 10),
+            pady=(150, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -211,13 +239,13 @@ class App(ttk.Frame):
         self.ax1.set_xlabel("Wavelength")
         self.ax1.set_ylabel("Intensity")
 
-        canvas = FigureCanvasTkAgg(fig1, master=plot_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas1 = FigureCanvasTkAgg(fig1, master=plot_frame)
+        self.canvas1.draw()
+        self.canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (dark,) = self.ax1.plot([], [], "-", label="Dark")
-        (reference,) = self.ax1.plot([], [], "-", label="Reference")
-        (realtime,) = self.ax1.plot([], [], "-", label="Real time")
+        (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
+        (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
+        (self.realtime,) = self.ax1.plot([], [], "-", label="Real time")
 
         self.ax1.legend()
 
@@ -229,8 +257,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(150, 150),
-            pady=(200, 10),
+            padx=(30, 10),
+            pady=(150, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -240,11 +268,11 @@ class App(ttk.Frame):
         self.ax2.set_xlabel("Wavelength")
         self.ax2.set_ylabel("Y")
 
-        canvas = FigureCanvasTkAgg(fig2, master=plot_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas2 = FigureCanvasTkAgg(fig2, master=plot_frame)
+        self.canvas2.draw()
+        self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (realtime,) = self.ax2.plot([], [], "-", label="Real time")
+        (absorb,) = self.ax2.plot([], [], "-", label="Real time")
 
         self.ax2.legend()
 
@@ -256,8 +284,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(150, 150),
-            pady=(200, 10),
+            padx=(30, 10),
+            pady=(150, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -283,8 +311,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(150, 150),
-            pady=(200, 10),
+            padx=(30, 10),
+            pady=(150, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -303,14 +331,14 @@ class App(ttk.Frame):
         self.ax4.legend()
 
     def load_dark(self, file_path):
-        x, y = load_file(self.dark_folder + file_path.get())
+        x, y = load_file(dark_folder + file_path.get())
         self.dark.set_data(x, y)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.canvas1.draw()
 
-    def load_ref(self, file_path):
-        x, y = load_file(self.ref_folder + file_path.get())
+    def load_bright(self, file_path):
+        x, y = load_file(bright_folder + file_path.get())
         self.reference.set_data(x, y)
         self.ax1.relim()
         self.ax1.autoscale_view()
@@ -318,21 +346,35 @@ class App(ttk.Frame):
 
     def save_dark(self):
         save_dark_file(self.x, self.y)
+        self.build_dark_block()
 
-    def save_ref(self):
-        save_ref_file(self.x, self.y)
+    def save_bright(self):
+        save_bright_file(self.x, self.y)
+        self.build_bright_block()
 
     def start_real(self):
-        self.x = [1, 2, 3, 4, 5]
-        self.y = [random.uniform(1, 10) for _ in range(5)]
-        self.realtime.set_data(self.x, self.y)
-        self.ax1.relim()
-        self.ax1.autoscale_view()
-        self.canvas1.draw()
-        self.after(1000, self.start_real)
+        if self.running == True:
+            self.signal_generator.start()
+            self.x = self.signal_generator.generate_x()
+            self.y = self.signal_generator.generate_y()
+            self.realtime.set_data(self.x, self.y)
+            self.ax1.relim()
+            self.ax1.autoscale_view()
+            self.canvas1.draw()
+            self.after(self.int_time - 1, self.start_real)
+        else:
+            self.running = True
 
     def stop_real(self):
+        self.signal_generator.stop_laser()
         self.running = False
+
+    def load_absorb(self):
+        self.y_ab = [i**2 for i in self.x]
+        self.absorb.set_data(self.x, self.y_ab)
+        self.ax2.relim()
+        self.ax2.autoscale_view()
+        self.canvas2.draw()
 
     def save_absorb(self):
         pass
@@ -348,11 +390,11 @@ class App(ttk.Frame):
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.title("")
-    root.geometry("1600x800")
+    root.title("FiberX")
+    root.geometry("2500x1400")
 
     root.tk.call("source", "azure/azure.tcl")
-    root.tk.call("set_theme", "dark")
+    root.tk.call("set_theme", "light")
 
     app = App(root)
     app.pack(fill="both", expand=True)

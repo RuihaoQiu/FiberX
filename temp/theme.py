@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
     # Simply set the theme
     root.tk.call("source", "azure/azure.tcl")
-    root.tk.call("set_theme", "dark")
+    root.tk.call("set_theme", "light")
 
     app = App(root)
     app.pack(fill="both", expand=True)
