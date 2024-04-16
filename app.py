@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import os
 import ctypes
 import random
+import pandas as pd
+from shapely.geometry import Polygon
 
 from device_io import SignalGenerator
 
@@ -172,8 +174,15 @@ class App(ttk.Frame):
 
         label = ttk.Label(input_frame, text="波峰:")
         label.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
-        label = ttk.Label(input_frame, text="123")
-        label.grid(row=0, column=1, padx=30, pady=(0, 10), sticky="ew")
+
+        self.min_label = ttk.Label(input_frame, text="123")
+        self.min_label.grid(row=0, column=1, padx=30, pady=(0, 10), sticky="ew")
+
+        label = ttk.Label(input_frame, text="质心:")
+        label.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="ew")
+
+        self.centroid_label = ttk.Label(input_frame, text="123")
+        self.centroid_label.grid(row=1, column=1, padx=30, pady=(0, 10), sticky="ew")
 
     def build_control_block(self):
         control_frame = ttk.LabelFrame(self, text="控制", padding=(20, 10))
@@ -272,7 +281,8 @@ class App(ttk.Frame):
         self.canvas2.draw()
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (absorb,) = self.ax2.plot([], [], "-", label="Real time")
+        (self.absorb,) = self.ax2.plot([], [], "-", label="Real time")
+        self.load_absorb()
 
         self.ax2.legend()
 
@@ -370,11 +380,37 @@ class App(ttk.Frame):
         self.running = False
 
     def load_absorb(self):
-        self.y_ab = [i**2 for i in self.x]
-        self.absorb.set_data(self.x, self.y_ab)
+        df = pd.read_excel("../参考、检测、共振峰谱.xlsx")
+        self.x_ab = df["Wavelength"].to_list()
+        self.y_ab = df["Ratio"].to_list()
+        self.absorb.set_data(self.x_ab, self.y_ab)
         self.ax2.relim()
         self.ax2.autoscale_view()
         self.canvas2.draw()
+        self.update_min()
+
+    def update_min(self):
+        idx_min = self.find_minimum(y=self.y_ab)
+        self.min_label.config(text=f"{self.x_ab[idx_min]}")
+        self.after(1000, self.update_min)
+
+    @staticmethod
+    def find_minimum(y):
+        min_index = y.index(min(y))
+        return min_index
+
+    def find_centroid(self, x, y, diff=50):
+        min_index = self.find_minimum(y)
+        left_index = min_index - 5 * diff
+        right_index = min_index + 5 * diff
+        y_low = [
+            y[i] for i in range(left_index, right_index + 1000) if y[i] <= y[left_index]
+        ]
+        x_low = x[left_index : left_index + len(y_low)]
+        y_up = [y[left_index]] * (len(y_low) - 1)
+        boundary = list(zip((x_low + x_low[1:]), (y_low + y_up)))
+        polygon = Polygon(boundary)
+        return polygon.centroid.x, polygon.centroid.y
 
     def save_absorb(self):
         pass
@@ -394,7 +430,7 @@ if __name__ == "__main__":
     root.geometry("2500x1400")
 
     root.tk.call("source", "azure/azure.tcl")
-    root.tk.call("set_theme", "light")
+    root.tk.call("set_theme", "dark")
 
     app = App(root)
     app.pack(fill="both", expand=True)
