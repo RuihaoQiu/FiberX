@@ -24,7 +24,7 @@ ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
 plt.rcParams.update(
     {
-        "figure.figsize": (8, 5),
+        "figure.figsize": (9, 5),
     }
 )
 
@@ -34,6 +34,7 @@ class App(ttk.Frame):
         ttk.Frame.__init__(self)
         self.running = True
         self.int_time = 500
+        self.df = pd.read_excel("../参考、检测、共振峰谱.xlsx")
 
         for index in [0, 1, 2]:
             self.columnconfigure(index=index, weight=1)
@@ -121,7 +122,7 @@ class App(ttk.Frame):
             command=self.start_real,
             style="Accent.TButton",
         )
-        start_button.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
+        start_button.grid(row=0, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         stop_button = ttk.Button(
             buttons_frame,
@@ -129,7 +130,7 @@ class App(ttk.Frame):
             command=self.stop_real,
             style="Accent.TButton",
         )
-        stop_button.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="ew")
+        stop_button.grid(row=1, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         save_dark_button = ttk.Button(
             buttons_frame,
@@ -137,7 +138,7 @@ class App(ttk.Frame):
             command=self.save_dark,
             style="Accent.TButton",
         )
-        save_dark_button.grid(row=2, column=0, padx=30, pady=(0, 10), sticky="ew")
+        save_dark_button.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         save_bright_button = ttk.Button(
             buttons_frame,
@@ -145,7 +146,7 @@ class App(ttk.Frame):
             command=self.save_bright,
             style="Accent.TButton",
         )
-        save_bright_button.grid(row=3, column=0, padx=30, pady=(0, 10), sticky="ew")
+        save_bright_button.grid(row=3, column=0, padx=20, pady=(0, 10), sticky="ew")
 
     def build_input_block(self):
         input_frame = ttk.LabelFrame(self, text="设置", padding=(20, 10))
@@ -158,9 +159,9 @@ class App(ttk.Frame):
         )
 
         label = ttk.Label(input_frame, text="Enter your input:")
-        label.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
+        label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
         entry = ttk.Entry(input_frame)
-        entry.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="ew")
+        entry.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
 
     def build_display_block(self):
         input_frame = ttk.LabelFrame(self, text="实时数据", padding=(20, 10))
@@ -173,16 +174,16 @@ class App(ttk.Frame):
         )
 
         label = ttk.Label(input_frame, text="波峰:")
-        label.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
+        label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
 
         self.min_label = ttk.Label(input_frame, text="123")
-        self.min_label.grid(row=0, column=1, padx=30, pady=(0, 10), sticky="ew")
+        self.min_label.grid(row=0, column=1, padx=0, pady=(0, 10), sticky="ew")
 
         label = ttk.Label(input_frame, text="质心:")
-        label.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="ew")
+        label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
 
         self.centroid_label = ttk.Label(input_frame, text="123")
-        self.centroid_label.grid(row=1, column=1, padx=30, pady=(0, 10), sticky="ew")
+        self.centroid_label.grid(row=1, column=1, padx=0, pady=(0, 10), sticky="ew")
 
     def build_control_block(self):
         control_frame = ttk.LabelFrame(self, text="控制", padding=(20, 10))
@@ -200,7 +201,7 @@ class App(ttk.Frame):
             command=self.start_real,
             style="Accent.TButton",
         )
-        start_button.grid(row=0, column=0, padx=30, pady=(0, 10), sticky="ew")
+        start_button.grid(row=0, column=0, padx=(20, 20), pady=(0, 10), sticky="ew")
 
         save_button = ttk.Button(
             control_frame,
@@ -208,7 +209,7 @@ class App(ttk.Frame):
             command=self.save_bright,
             style="Accent.TButton",
         )
-        save_button.grid(row=2, column=0, padx=30, pady=(0, 10), sticky="ew")
+        save_button.grid(row=2, column=0, padx=(20, 20), pady=(0, 10), sticky="ew")
 
     def build_plot_block(self):
         self.paned = ttk.PanedWindow(self)
@@ -237,7 +238,7 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(30, 10),
+            padx=(10, 10),
             pady=(150, 10),
             sticky="ew",
             rowspan=3,
@@ -266,7 +267,7 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(30, 10),
+            padx=(10, 10),
             pady=(150, 10),
             sticky="ew",
             rowspan=3,
@@ -282,7 +283,7 @@ class App(ttk.Frame):
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         (self.absorb,) = self.ax2.plot([], [], "-", label="Real time")
-        self.load_absorb()
+        self.update_absorb()
 
         self.ax2.legend()
 
@@ -294,7 +295,7 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(30, 10),
+            padx=(10, 10),
             pady=(150, 10),
             sticky="ew",
             rowspan=3,
@@ -321,7 +322,7 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(30, 10),
+            padx=(10, 10),
             pady=(150, 10),
             sticky="ew",
             rowspan=3,
@@ -379,20 +380,27 @@ class App(ttk.Frame):
         self.signal_generator.stop_laser()
         self.running = False
 
-    def load_absorb(self):
-        df = pd.read_excel("../参考、检测、共振峰谱.xlsx")
-        self.x_ab = df["Wavelength"].to_list()
-        self.y_ab = df["Ratio"].to_list()
+    def update_absorb(self):
+        r = random.random()
+        self.x_ab = self.df["Wavelength"].to_list()
+        self.y_ab = [x + r for x in self.df["Ratio"].to_list()]
         self.absorb.set_data(self.x_ab, self.y_ab)
         self.ax2.relim()
         self.ax2.autoscale_view()
         self.canvas2.draw()
         self.update_min()
+        self.update_centroid()
+        self.after(1000, self.update_absorb)
 
     def update_min(self):
         idx_min = self.find_minimum(y=self.y_ab)
         self.min_label.config(text=f"{self.x_ab[idx_min]}")
-        self.after(1000, self.update_min)
+        # self.after(1000, self.update_min)
+
+    def update_centroid(self):
+        x_centroid, _ = self.find_centroid(x=self.x_ab, y=self.y_ab)
+        self.centroid_label.config(text=f"{x_centroid}")
+        # self.after(1000, self.update_centroid)
 
     @staticmethod
     def find_minimum(y):
@@ -410,7 +418,7 @@ class App(ttk.Frame):
         y_up = [y[left_index]] * (len(y_low) - 1)
         boundary = list(zip((x_low + x_low[1:]), (y_low + y_up)))
         polygon = Polygon(boundary)
-        return polygon.centroid.x, polygon.centroid.y
+        return round(polygon.centroid.x, 3), round(polygon.centroid.y, 3)
 
     def save_absorb(self):
         pass
@@ -427,7 +435,8 @@ class App(ttk.Frame):
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("FiberX")
-    root.geometry("2500x1400")
+    root.state("zoomed")
+    # root.geometry("2500x1400")
 
     root.tk.call("source", "azure/azure.tcl")
     root.tk.call("set_theme", "dark")
@@ -436,10 +445,10 @@ if __name__ == "__main__":
     app.pack(fill="both", expand=True)
 
     # Set a minsize for the window, and place it in the middle
-    root.update()
-    root.minsize(root.winfo_width(), root.winfo_height())
-    x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
-    y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
-    root.geometry("+{}+{}".format(x_cordinate, y_cordinate - 20))
+    # root.update()
+    # root.minsize(root.winfo_width(), root.winfo_height())
+    # x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
+    # y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
+    # root.geometry("+{}+{}".format(x_cordinate, y_cordinate - 20))
 
     root.mainloop()
