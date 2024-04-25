@@ -41,7 +41,6 @@ class App(ttk.Frame):
             self.rowconfigure(index=index, weight=1)
 
         self.setup_files()
-        # self.setup_buttons()
         self.setup_plots()
 
         self.signal_generator = SignalGenerator(int_time=self.int_time)
@@ -55,11 +54,6 @@ class App(ttk.Frame):
         self.build_input_block()
         self.build_control_block()
         self.build_display_block()
-
-    # def setup_buttons(self):
-    #     self.build_io_block()
-    #     self.build_display_block()
-    #     self.build_control_block()
 
     def setup_plots(self):
         self.build_plot_block()
@@ -75,7 +69,7 @@ class App(ttk.Frame):
         )
 
         var = tk.StringVar()
-        filenames = os.listdir(dark_folder)
+        filenames = os.listdir(dark_folder)[::-1]
         for file in filenames:
             b = ttk.Checkbutton(
                 dark_frame,
@@ -97,7 +91,7 @@ class App(ttk.Frame):
         )
 
         var = tk.StringVar()
-        filenames = os.listdir(bright_folder)
+        filenames = os.listdir(bright_folder)[::-1]
         for file in filenames:
             b = ttk.Checkbutton(
                 ref_frame,
