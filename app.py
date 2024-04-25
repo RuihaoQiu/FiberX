@@ -37,6 +37,7 @@ class App(ttk.Frame):
         self.sample_time = 1000
         self.diff = 50
         self.min_idx = None
+        self.fix_minimum = False
         self.centroid_x, self.centroid_y = None, None
 
         self.df = pd.read_csv("../time_samples.csv")
@@ -222,7 +223,7 @@ class App(ttk.Frame):
         start_button = ttk.Button(
             control_frame,
             text="开始时序",
-            command=self.update_absorb,
+            command=self.start_absorb,
             style="Accent.TButton",
             width=25,
         )
@@ -411,7 +412,7 @@ class App(ttk.Frame):
         self.signal_generator.stop_laser()
         self.running = False
 
-    def update_absorb(self):
+    def start_absorb(self):
         i = random.randint(0, 9)
         self.x_ab = self.df["Wavelength"].to_list()
         self.y_ab = self.df[f"Ratio_{i}"].to_list()
@@ -422,11 +423,17 @@ class App(ttk.Frame):
         self.canvas2.draw()
         self.update_min()
         self.update_centroid()
-        self.after(self.sample_time, self.update_absorb)
+        self.after(self.sample_time, self.start_absorb)
 
     def update_min(self):
-        self.min_idx = self.find_minimum(y=self.y_ab)
-        self.min_label.config(text=f"{self.x_ab[self.min_idx]:.3f}")
+        if self.fix_minimum == False:
+            self.min_idx = self.find_minimum(y=self.y_ab)
+            self.min_label.config(text=f"{self.x_ab[self.min_idx]:.3f}")
+        else:
+            pass
+
+    def fix_min(self):
+        self.fix_minimum = True
 
     def update_centroid(self):
         self.centroid_x, self.centroid_y = self.find_centroid(
@@ -466,9 +473,6 @@ class App(ttk.Frame):
         return polygon.centroid.x, polygon.centroid.y
 
     def save_absorb(self):
-        pass
-
-    def fix_min(self):
         pass
 
     def setup_tab3(self):
