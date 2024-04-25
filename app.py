@@ -37,6 +37,8 @@ class App(ttk.Frame):
         self.sample_time = 1000
         self.diff = 50
         self.min_idx = None
+        self.centroid_x, self.centroid_y = None, None
+
         self.df = pd.read_csv("../time_samples.csv")
 
         for index in [0, 1, 2]:
@@ -117,13 +119,13 @@ class App(ttk.Frame):
 
         label = ttk.Label(input_frame, text="积分时间:")
         label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
-        self.int_entry = ttk.Entry(input_frame, width=10)
+        self.int_entry = ttk.Entry(input_frame, width=9)
         self.int_entry.insert(0, self.int_time)
         self.int_entry.grid(row=0, column=1, padx=0, pady=(0, 10), sticky="ew")
 
         label = ttk.Label(input_frame, text="采样时间:")
         label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
-        self.sample_entry = ttk.Entry(input_frame, width=10)
+        self.sample_entry = ttk.Entry(input_frame, width=9)
         self.sample_entry.insert(0, self.sample_time)
         self.sample_entry.grid(row=1, column=1, padx=0, pady=(0, 10), sticky="ew")
 
@@ -132,9 +134,10 @@ class App(ttk.Frame):
             text="开始",
             command=self.start_real,
             style="Accent.TButton",
+            width=25,
         )
         start_button.grid(
-            row=2, column=0, padx=10, pady=(30, 10), columnspan=2, sticky="ew"
+            row=2, column=0, padx=10, pady=(10, 10), columnspan=2  # , sticky="ew"
         )
 
         stop_button = ttk.Button(
@@ -177,17 +180,28 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
-        label = ttk.Label(real_frame, text="波峰:")
-        label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
-
-        self.min_label = ttk.Label(real_frame, text="123")
-        self.min_label.grid(row=0, column=1, padx=0, pady=(0, 10), sticky="ew")
-
-        label = ttk.Label(real_frame, text="质心:")
+        label = ttk.Label(real_frame, text="最低点:")
         label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
 
-        self.centroid_label = ttk.Label(real_frame, text="123")
-        self.centroid_label.grid(row=1, column=1, padx=0, pady=(0, 10), sticky="ew")
+        self.min_label = ttk.Label(real_frame, text="123.123", font=("Arial", 18))
+        self.min_label.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
+
+        confirm_button = ttk.Button(
+            real_frame,
+            text="固定最低点",
+            command=self.fix_min,
+            style="Accent.TButton",
+            width=25,
+        )
+        confirm_button.grid(
+            row=0, column=0, padx=10, pady=(0, 10), columnspan=2, sticky="ew"
+        )
+
+        label = ttk.Label(real_frame, text="质心:")
+        label.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+        self.centroid_label = ttk.Label(real_frame, text="123.123", font=("Arial", 18))
+        self.centroid_label.grid(row=2, column=1, padx=10, pady=(0, 10), sticky="ew")
 
     def build_control_block(self):
         control_frame = ttk.LabelFrame(self, text="控制", padding=(20, 10))
@@ -210,10 +224,9 @@ class App(ttk.Frame):
             text="开始时序",
             command=self.update_absorb,
             style="Accent.TButton",
+            width=25,
         )
-        start_button.grid(
-            row=2, column=0, padx=10, pady=(30, 10), columnspan=2, sticky="ew"
-        )
+        start_button.grid(row=2, column=0, padx=10, pady=(10, 10), columnspan=2)
 
         save_button = ttk.Button(
             control_frame,
@@ -291,14 +304,14 @@ class App(ttk.Frame):
 
         fig2, self.ax2 = plt.subplots()
         self.ax2.set_xlabel("Wavelength")
-        self.ax2.set_ylabel("Y")
+        self.ax2.set_ylabel("Ratio")
 
         self.canvas2 = FigureCanvasTkAgg(fig2, master=plot_frame)
         self.canvas2.draw()
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         (self.absorb,) = self.ax2.plot([], [], "-", label="Real time")
-        # self.update_absorb()
+        (self.centroid,) = self.ax2.plot([], [], ".", label="Centroid")
 
         self.ax2.legend()
 
@@ -403,6 +416,7 @@ class App(ttk.Frame):
         self.x_ab = self.df["Wavelength"].to_list()
         self.y_ab = self.df[f"Ratio_{i}"].to_list()
         self.absorb.set_data(self.x_ab, self.y_ab)
+        self.centroid.set_data([self.centroid_x], [self.centroid_y])
         self.ax2.relim()
         self.ax2.autoscale_view()
         self.canvas2.draw()
@@ -412,13 +426,13 @@ class App(ttk.Frame):
 
     def update_min(self):
         self.min_idx = self.find_minimum(y=self.y_ab)
-        self.min_label.config(text=f"{self.x_ab[self.min_idx]}")
+        self.min_label.config(text=f"{self.x_ab[self.min_idx]:.3f}")
 
     def update_centroid(self):
-        x_centroid, _ = self.find_centroid(
+        self.centroid_x, self.centroid_y = self.find_centroid(
             x=self.x_ab, y=self.y_ab, min_idx=self.min_idx
         )
-        self.centroid_label.config(text=f"{x_centroid}")
+        self.centroid_label.config(text=f"{self.centroid_x:.3f}")
 
     @staticmethod
     def find_minimum(y):
@@ -452,6 +466,9 @@ class App(ttk.Frame):
         return polygon.centroid.x, polygon.centroid.y
 
     def save_absorb(self):
+        pass
+
+    def fix_min(self):
         pass
 
     def setup_tab3(self):
