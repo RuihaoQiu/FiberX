@@ -7,7 +7,7 @@ source_path = r"C:\Users\ruihq\Desktop\ProfZ\sdk4.1\[4] USB Dome\[3] python demo
 class SignalGenerator:
     def __init__(self, int_time: int = 1000):
         self.index = 0
-        self.n_length = 4048
+        self.n_length = 4096
         self.int_time = int_time
         self.lib = cdll.LoadLibrary(source_path)
         self.devcount = self.lib.seabreeze_open_all_spectrometers(0)
