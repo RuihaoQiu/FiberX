@@ -102,32 +102,6 @@ class App(ttk.Frame):
             )
             b.pack(anchor=tk.W)
 
-    def build_io_block(self):
-        buttons_frame = ttk.LabelFrame(self, text="保存文件", padding=(20, 10))
-        buttons_frame.grid(
-            row=0,
-            column=1,
-            padx=(10, 10),
-            pady=(10, 10),
-            sticky="nsew",
-        )
-
-        save_dark_button = ttk.Button(
-            buttons_frame,
-            text="保存暗光谱",
-            command=self.save_dark,
-            style="Accent.TButton",
-        )
-        save_dark_button.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
-
-        save_bright_button = ttk.Button(
-            buttons_frame,
-            text="保存亮光谱",
-            command=self.save_bright,
-            style="Accent.TButton",
-        )
-        save_bright_button.grid(row=3, column=0, padx=20, pady=(0, 10), sticky="ew")
-
     def build_input_block(self):
         input_frame = ttk.LabelFrame(self, text="设置", padding=(20, 10))
         input_frame.grid(
@@ -140,8 +114,15 @@ class App(ttk.Frame):
 
         label = ttk.Label(input_frame, text="积分时间:")
         label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
-        entry = ttk.Entry(input_frame)
-        entry.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        entry = ttk.Entry(input_frame, width=10)
+        entry.insert(0, self.int_time)
+        entry.grid(row=0, column=1, padx=0, pady=(0, 10), sticky="ew")
+
+        label = ttk.Label(input_frame, text="刷新时间:")
+        label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        entry = ttk.Entry(input_frame, width=10)
+        entry.insert(0, "1000")
+        entry.grid(row=1, column=1, padx=0, pady=(0, 10), sticky="ew")
 
         start_button = ttk.Button(
             input_frame,
@@ -149,7 +130,9 @@ class App(ttk.Frame):
             command=self.start_real,
             style="Accent.TButton",
         )
-        start_button.grid(row=2, column=0, padx=10, pady=(30, 10), sticky="ew")
+        start_button.grid(
+            row=2, column=0, padx=10, pady=(30, 10), columnspan=2, sticky="ew"
+        )
 
         stop_button = ttk.Button(
             input_frame,
@@ -157,7 +140,9 @@ class App(ttk.Frame):
             command=self.stop_real,
             style="Accent.TButton",
         )
-        stop_button.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+        stop_button.grid(
+            row=3, column=0, padx=10, pady=(0, 10), columnspan=2, sticky="ew"
+        )
 
         save_dark_button = ttk.Button(
             input_frame,
@@ -165,7 +150,9 @@ class App(ttk.Frame):
             command=self.save_dark,
             style="Accent.TButton",
         )
-        save_dark_button.grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
+        save_dark_button.grid(
+            row=4, column=0, padx=10, pady=(0, 10), columnspan=2, sticky="ew"
+        )
 
         save_bright_button = ttk.Button(
             input_frame,
@@ -173,7 +160,9 @@ class App(ttk.Frame):
             command=self.save_bright,
             style="Accent.TButton",
         )
-        save_bright_button.grid(row=5, column=0, padx=10, pady=(0, 10), sticky="ew")
+        save_bright_button.grid(
+            row=5, column=0, padx=10, pady=(0, 10), columnspan=2, sticky="ew"
+        )
 
     def build_display_block(self):
         real_frame = ttk.LabelFrame(self, text="实时数据", padding=(20, 10))
@@ -209,8 +198,8 @@ class App(ttk.Frame):
 
         label = ttk.Label(control_frame, text="范围:")
         label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
-        entry = ttk.Entry(control_frame)
-        entry.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        entry = ttk.Entry(control_frame, width=10)
+        entry.grid(row=0, column=1, padx=10, pady=(0, 10), sticky="ew")
 
         start_button = ttk.Button(
             control_frame,
@@ -218,7 +207,9 @@ class App(ttk.Frame):
             command=self.start_real,
             style="Accent.TButton",
         )
-        start_button.grid(row=2, column=0, padx=10, pady=(30, 10), sticky="ew")
+        start_button.grid(
+            row=2, column=0, padx=10, pady=(30, 10), columnspan=2, sticky="ew"
+        )
 
         save_button = ttk.Button(
             control_frame,
@@ -226,7 +217,9 @@ class App(ttk.Frame):
             command=self.save_bright,
             style="Accent.TButton",
         )
-        save_button.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+        save_button.grid(
+            row=3, column=0, padx=10, pady=(0, 10), columnspan=2, sticky="ew"
+        )
 
     def build_plot_block(self):
         self.paned = ttk.PanedWindow(self)
