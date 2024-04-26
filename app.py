@@ -39,6 +39,7 @@ class App(ttk.Frame):
         self.min_idx = None
         self.fix_minimum = False
         self.centroid_x, self.centroid_y = None, None
+        self.centroids = []
 
         self.df = pd.read_csv("../time_samples.csv")
 
@@ -285,7 +286,6 @@ class App(ttk.Frame):
         (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
         (self.realtime,) = self.ax1.plot([], [], "-", label="Real time")
 
-        # self.canvas1.mpl_connect("scroll_event", self.on_scroll)
         self.ax1.legend()
 
     def build_tab2(self):
@@ -335,11 +335,11 @@ class App(ttk.Frame):
         self.ax3.set_xlabel("Time")
         self.ax3.set_ylabel("Y")
 
-        canvas = FigureCanvasTkAgg(fig3, master=plot_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas3 = FigureCanvasTkAgg(fig3, master=plot_frame)
+        self.canvas3.draw()
+        self.canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (realtime,) = self.ax3.plot([], [], "-", label="Real time")
+        (self.realtime,) = self.ax3.plot([], [], "-", label="Real time")
 
         self.ax3.legend()
 
@@ -366,7 +366,7 @@ class App(ttk.Frame):
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (realtime,) = self.ax4.plot([], [], "-", label="Real time")
+        (self.intensity,) = self.ax4.plot([], [], "-", label="Real time")
 
         self.ax4.legend()
 
@@ -404,7 +404,7 @@ class App(ttk.Frame):
             self.ax1.relim()
             self.ax1.autoscale_view()
             self.canvas1.draw()
-            self.after(self.int_time - 1, self.start_real)
+            self.after(self.int_time, self.start_real)
         else:
             self.running = True
 
@@ -440,6 +440,13 @@ class App(ttk.Frame):
             x=self.x_ab, y=self.y_ab, min_idx=self.min_idx
         )
         self.centroid_label.config(text=f"{self.centroid_x:.3f}")
+
+        self.centroids.append(self.centroid_x)
+        x_time = range(len(self.centroids))
+        self.realtime.set_data(x_time, self.centroids)
+        self.ax3.relim()
+        self.ax3.autoscale_view()
+        self.canvas3.draw()
 
     @staticmethod
     def find_minimum(y):
@@ -495,12 +502,5 @@ if __name__ == "__main__":
 
     app = App(root)
     app.pack(fill="both", expand=True)
-
-    # Set a minsize for the window, and place it in the middle
-    # root.update()
-    # root.minsize(root.winfo_width(), root.winfo_height())
-    # x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
-    # y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
-    # root.geometry("+{}+{}".format(x_cordinate, y_cordinate - 20))
 
     root.mainloop()
