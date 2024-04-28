@@ -22,11 +22,7 @@ from file_io import (
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
-plt.rcParams.update(
-    {
-        "figure.figsize": (10, 6),
-    }
-)
+plt.rcParams.update({"figure.figsize": (10.5, 6.9), "figure.autolayout": True})
 
 
 class App(ttk.Frame):
@@ -121,15 +117,17 @@ class App(ttk.Frame):
 
         label = ttk.Label(input_frame, text="积分时间:")
         label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
-        self.int_entry = ttk.Entry(input_frame, width=7)
+        self.int_entry = ttk.Entry(input_frame, width=10)
         self.int_entry.insert(0, self.int_time)
-        self.int_entry.grid(row=0, column=1, padx=10, pady=(0, 10), sticky="ew")
+        self.int_entry.grid(row=0, column=1, padx=(10, 50), pady=(0, 10), sticky="ew")
 
         label = ttk.Label(input_frame, text="采样时间:")
         label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
-        self.sample_entry = ttk.Entry(input_frame, width=7)
+        self.sample_entry = ttk.Entry(input_frame, width=10)
         self.sample_entry.insert(0, self.sample_time)
-        self.sample_entry.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
+        self.sample_entry.grid(
+            row=1, column=1, padx=(10, 50), pady=(0, 10), sticky="ew"
+        )
 
         start_button = ttk.Button(
             input_frame,
@@ -138,7 +136,7 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         start_button.grid(
-            row=2, column=0, padx=10, pady=(10, 10), columnspan=1  # , sticky="ew"
+            row=2, column=0, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
         )
 
         stop_button = ttk.Button(
@@ -148,7 +146,7 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         stop_button.grid(
-            row=2, column=1, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
+            row=2, column=1, padx=(10, 50), pady=(10, 10), columnspan=1, sticky="ew"
         )
 
         save_dark_button = ttk.Button(
@@ -168,7 +166,7 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         save_bright_button.grid(
-            row=3, column=1, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
+            row=3, column=1, padx=(10, 50), pady=(0, 10), columnspan=1, sticky="ew"
         )
 
     def build_display_block(self):
@@ -220,7 +218,6 @@ class App(ttk.Frame):
             text="开始时序",
             command=self.start_absorb,
             style="Accent.TButton",
-            # width=23,
         )
         start_button.grid(
             row=2, column=0, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
@@ -283,8 +280,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(20, 10),
-            pady=(75, 10),
+            padx=(0, 10),
+            pady=(0, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -432,6 +429,7 @@ class App(ttk.Frame):
         self.running = False
 
     def start_absorb(self):
+        self.sample_time = self.sample_entry.get()
         i = random.randint(0, 9)
         self.x_ab = self.df["Wavelength"].to_list()
         self.y_ab = self.df[f"Ratio_{i}"].to_list()
@@ -443,6 +441,9 @@ class App(ttk.Frame):
         self.update_min()
         self.update_centroid()
         self.after(self.sample_time, self.start_absorb)
+
+    def stop_absorb(self):
+        self.run_absorb = False
 
     def update_min(self):
         if self.fix_minimum == False:
