@@ -9,6 +9,7 @@ import ctypes
 import random
 import pandas as pd
 from shapely.geometry import Polygon
+from scipy.ndimage import gaussian_filter1d
 
 from device_io import SignalGenerator
 
@@ -29,6 +30,7 @@ class App(ttk.Frame):
     def __init__(self, parent):
         ttk.Frame.__init__(self)
         self.running = True
+        self.ts_running = True
         self.int_time = 100
         self.sample_time = 1000
         self.diff = 50
@@ -203,15 +205,15 @@ class App(ttk.Frame):
 
         label = ttk.Label(control_frame, text="质心范围:")
         label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
-        entry = ttk.Entry(control_frame, width=7)
-        entry.insert(0, self.diff)
-        entry.grid(row=0, column=1, padx=10, pady=(0, 10), sticky="ew")
+        self.diff_entry = ttk.Entry(control_frame, width=7)
+        self.diff_entry.insert(0, self.diff)
+        self.diff_entry.grid(row=0, column=1, padx=10, pady=(0, 10), sticky="ew")
 
         label = ttk.Label(control_frame, text="强度位置:")
         label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
-        entry = ttk.Entry(control_frame, width=7)
-        entry.insert(0, 700)
-        entry.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
+        self.position_entry = ttk.Entry(control_frame, width=7)
+        self.position_entry.insert(0, 700)
+        self.position_entry.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
 
         start_button = ttk.Button(
             control_frame,
@@ -226,7 +228,7 @@ class App(ttk.Frame):
         save_button = ttk.Button(
             control_frame,
             text="暂停时序",
-            command=self.stop_real,
+            command=self.stop_absorb,
             style="Accent.TButton",
         )
         save_button.grid(
@@ -271,6 +273,7 @@ class App(ttk.Frame):
         self.build_tab2()
         self.build_tab3()
         self.build_tab4()
+        self.build_tab5()
 
     def build_tab1(self):
         tab1 = ttk.Frame(self.notebook)
@@ -309,8 +312,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(20, 10),
-            pady=(75, 10),
+            padx=(0, 10),
+            pady=(0, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -337,8 +340,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(20, 10),
-            pady=(75, 10),
+            padx=(0, 10),
+            pady=(0, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -364,8 +367,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(20, 10),
-            pady=(75, 10),
+            padx=(0, 10),
+            pady=(0, 10),
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -383,16 +386,45 @@ class App(ttk.Frame):
 
         self.ax4.legend()
 
+    def build_tab5(self):
+        tab5 = ttk.Frame(self.notebook)
+        self.notebook.add(tab5, text="最低点")
+
+        plot_frame = ttk.Frame(tab5)
+        plot_frame.grid(
+            row=0,
+            column=0,
+            padx=(0, 10),
+            pady=(0, 10),
+            sticky="ew",
+            rowspan=3,
+            columnspan=3,
+        )
+
+        fig5, self.ax5 = plt.subplots()
+        self.ax5.set_xlabel("Time")
+        self.ax5.set_ylabel("Lowest Point")
+
+        canvas = FigureCanvasTkAgg(fig5, master=plot_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        (self.lowest,) = self.ax5.plot([], [], "-", label="Real time")
+
+        self.ax5.legend()
+
     def load_dark(self, file_path):
         self.x_dark, self.y_dark = load_file(dark_folder + file_path.get())
-        self.dark.set_data(self.x_dark, self.y_dark)
+        self.y_darks = gaussian_filter1d(self.y_dark, sigma=100)
+        self.dark.set_data(self.x_dark, self.y_darks)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.canvas1.draw()
 
     def load_bright(self, file_path):
         self.x_ref, self.y_ref = load_file(bright_folder + file_path.get())
-        self.reference.set_data(self.x_ref, self.y_ref)
+        self.y_refs = gaussian_filter1d(self.y_ref, sigma=100)
+        self.reference.set_data(self.x_ref, self.y_refs)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.canvas1.draw()
@@ -429,21 +461,24 @@ class App(ttk.Frame):
         self.running = False
 
     def start_absorb(self):
-        self.sample_time = self.sample_entry.get()
-        i = random.randint(0, 9)
-        self.x_ab = self.df["Wavelength"].to_list()
-        self.y_ab = self.df[f"Ratio_{i}"].to_list()
-        self.absorb.set_data(self.x_ab, self.y_ab)
-        self.centroid.set_data([self.centroid_x], [self.centroid_y])
-        self.ax2.relim()
-        self.ax2.autoscale_view()
-        self.canvas2.draw()
-        self.update_min()
-        self.update_centroid()
-        self.after(self.sample_time, self.start_absorb)
+        if self.ts_running == True:
+            self.sample_time = self.sample_entry.get()
+            i = random.randint(0, 9)
+            self.x_ab = self.df["Wavelength"].to_list()
+            self.y_ab = self.df[f"Ratio_{i}"].to_list()
+            self.absorb.set_data(self.x_ab, self.y_ab)
+            self.centroid.set_data([self.centroid_x], [self.centroid_y])
+            self.ax2.relim()
+            self.ax2.autoscale_view()
+            self.canvas2.draw()
+            self.update_min()
+            self.update_centroid()
+            self.after(self.sample_time, self.start_absorb)
+        else:
+            self.ts_running = True
 
     def stop_absorb(self):
-        self.run_absorb = False
+        self.ts_running = False
 
     def update_min(self):
         if self.fix_minimum == False:
@@ -456,8 +491,9 @@ class App(ttk.Frame):
         self.fix_minimum = True
 
     def update_centroid(self):
+        self.diff = int(self.diff_entry.get())
         self.centroid_x, self.centroid_y = self.find_centroid(
-            x=self.x_ab, y=self.y_ab, min_idx=self.min_idx
+            x=self.x_ab, y=self.y_ab, min_idx=self.min_idx, diff=self.diff
         )
         self.centroid_label.config(text=f"{self.centroid_x:.3f}")
 
@@ -490,10 +526,10 @@ class App(ttk.Frame):
 
         return None
 
-    def find_centroid(self, x, y, min_idx):
+    def find_centroid(self, x, y, min_idx, diff):
         x_min = x[min_idx]
-        xl = self.find_interval(x[:min_idx], x_min - self.diff)
-        xr = self.find_interval(x[min_idx:], x_min + self.diff)
+        xl = self.find_interval(x[:min_idx], x_min - diff)
+        xr = self.find_interval(x[min_idx:], x_min + diff)
         il, ir = x.index(xl), x.index(xr)
         boundary = list(zip(x[il:ir], y[il:ir]))
         polygon = Polygon(boundary)
