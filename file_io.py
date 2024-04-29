@@ -32,5 +32,5 @@ def save_bright_file(x, y):
 
 def make_results_file():
     timestr = time.strftime("%y%m%d-%H%M%S")
-    path = results_folder + "result-" + timestr + ".csv"
+    path = results_folder + "result-" + timestr + ".xlsx"
     return path

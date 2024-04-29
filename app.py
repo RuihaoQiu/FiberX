@@ -17,13 +17,14 @@ from file_io import (
     load_file,
     save_dark_file,
     save_bright_file,
+    make_results_file,
     dark_folder,
     bright_folder,
 )
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
-plt.rcParams.update({"figure.figsize": (10.5, 6.9), "figure.autolayout": True})
+plt.rcParams.update({"figure.figsize": (10.4, 6.9), "figure.autolayout": True})
 
 
 class App(ttk.Frame):
@@ -437,9 +438,6 @@ class App(ttk.Frame):
         save_bright_file(self.x, self.y)
         self.build_bright_block()
 
-    def save_all_data(self):
-        pass
-
     def start_real(self):
         if self.running == True:
             self.int_time = self.int_entry.get()
@@ -498,6 +496,7 @@ class App(ttk.Frame):
         self.centroid_label.config(text=f"{self.centroid_x:.3f}")
 
         self.centroids.append(self.centroid_x)
+        self.centroids_sm = gaussian_filter1d(self.centroids, sigma=100)
         x_time = range(len(self.centroids))
         self.realtime.set_data(x_time, self.centroids)
         self.ax3.relim()
@@ -545,6 +544,30 @@ class App(ttk.Frame):
     def setup_tab4(self):
         self.tab4 = ttk.Frame(self.notebook)
         self.notebook.add(self.tab4, text="强度时序")
+
+    def save_all_data(self):
+        result_file = make_results_file()
+
+        df1 = pd.DataFrame(
+            {
+                "Wave Length": self.x_dark,
+                "Dark Intensity": self.y_dark,
+                "Dark Intensity(smooth)": self.y_darks,
+                "Reference Intensity": self.y_ref,
+                "Reference Intensity(smooth)": self.y_refs,
+            }
+        )
+
+        df2 = pd.DataFrame({"Wave Length": self.x_ab, "Ratio": self.y_ab})
+
+        df3 = pd.DataFrame(
+            {"Centroid": self.centroids, "Centroid(smooth)": self.centroids_sm}
+        )
+
+        with pd.ExcelWriter(path=result_file) as writer:
+            df1.to_excel(writer, sheet_name="光谱", index=False)
+            df2.to_excel(writer, sheet_name="吸收", index=False)
+            df3.to_excel(writer, sheet_name="时序", index=False)
 
 
 if __name__ == "__main__":
