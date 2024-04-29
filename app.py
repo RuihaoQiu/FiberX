@@ -26,9 +26,6 @@ ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
 plt.rcParams.update({"figure.figsize": (10.4, 6.9), "figure.autolayout": True})
 
-signal_generator = SignalGenerator()
-signal_generator.start()
-
 
 class App(ttk.Frame):
     def __init__(self, parent):
@@ -55,7 +52,8 @@ class App(ttk.Frame):
         self.setup_files()
         self.setup_plots()
 
-        # self.signal_generator = SignalGenerator(int_time=self.int_time)
+        # self.signal_generator = SignalGenerator()
+        # self.signal_generator.start()
         # Sizegrip
         self.sizegrip = ttk.Sizegrip(self)
         self.sizegrip.grid(row=100, column=100, padx=(0, 3), pady=(0, 3))
@@ -444,20 +442,26 @@ class App(ttk.Frame):
         save_bright_file(self.x, self.y)
         self.build_bright_block()
 
-    def start_real(self):
+    def update_real(self):
         if self.running == True:
-            self.x = signal_generator.generate_x()
-            self.y = signal_generator.generate_y()
+            self.x = self.signal_generator.generate_x()
+            self.y = self.signal_generator.generate_y()
             self.realtime.set_data(self.x, self.y)
             self.ax1.relim()
             self.ax1.autoscale_view()
             self.canvas1.draw()
-            self.after(self.int_time, self.start_real)
+            self.after(self.int_time, self.update_real)
         else:
             self.running = True
 
+    def start_real(self):
+        int_time = int(self.int_entry.get())
+        self.signal_generator = SignalGenerator(int_time=int_time)
+        self.signal_generator.start()
+        self.update_real()
+
     def stop_real(self):
-        signal_generator.stop_laser()
+        self.signal_generator.stop_laser()
         self.running = False
 
     def _start_absorb(self):
