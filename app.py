@@ -26,6 +26,9 @@ ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
 plt.rcParams.update({"figure.figsize": (10.4, 6.9), "figure.autolayout": True})
 
+signal_generator = SignalGenerator()
+signal_generator.start()
+
 
 class App(ttk.Frame):
     def __init__(self, parent):
@@ -40,6 +43,9 @@ class App(ttk.Frame):
         self.centroid_x, self.centroid_y = None, None
         self.centroids = []
 
+        self.y_refs = None
+        self.y_darks = None
+
         self.df = pd.read_csv("../time_samples.csv")
 
         for index in [0, 1, 2]:
@@ -49,7 +55,7 @@ class App(ttk.Frame):
         self.setup_files()
         self.setup_plots()
 
-        self.signal_generator = SignalGenerator(int_time=self.int_time)
+        # self.signal_generator = SignalGenerator(int_time=self.int_time)
         # Sizegrip
         self.sizegrip = ttk.Sizegrip(self)
         self.sizegrip.grid(row=100, column=100, padx=(0, 3), pady=(0, 3))
@@ -356,7 +362,7 @@ class App(ttk.Frame):
         self.canvas3.draw()
         self.canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (self.realtime,) = self.ax3.plot([], [], "-", label="Real time")
+        (self.timeseries,) = self.ax3.plot([], [], "-", label="Real time")
 
         self.ax3.legend()
 
@@ -440,12 +446,8 @@ class App(ttk.Frame):
 
     def start_real(self):
         if self.running == True:
-            self.int_time = self.int_entry.get()
-            self.sample_time = self.sample_entry.get()
-            self.signal_generator = SignalGenerator(int_time=self.int_time)
-            self.signal_generator.start()
-            self.x = self.signal_generator.generate_x()
-            self.y = self.signal_generator.generate_y()
+            self.x = signal_generator.generate_x()
+            self.y = signal_generator.generate_y()
             self.realtime.set_data(self.x, self.y)
             self.ax1.relim()
             self.ax1.autoscale_view()
@@ -455,10 +457,10 @@ class App(ttk.Frame):
             self.running = True
 
     def stop_real(self):
-        self.signal_generator.stop_laser()
+        signal_generator.stop_laser()
         self.running = False
 
-    def start_absorb(self):
+    def _start_absorb(self):
         if self.ts_running == True:
             self.sample_time = self.sample_entry.get()
             i = random.randint(0, 9)
@@ -472,6 +474,21 @@ class App(ttk.Frame):
             self.update_min()
             self.update_centroid()
             self.after(self.sample_time, self.start_absorb)
+        else:
+            self.ts_running = True
+
+    def start_absorb(self):
+        if self.ts_running == True:
+            self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
+            self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
+            self.absorb.set_data(self.x, self.y_abs)
+            self.ax2.relim()
+            self.ax2.autoscale_view()
+            self.canvas2.draw()
+            # self.centroid.set_data([self.centroid_x], [self.centroid_y])
+            # self.update_min()
+            # self.update_centroid()
+            self.after(1000, self.start_absorb)
         else:
             self.ts_running = True
 
@@ -498,7 +515,7 @@ class App(ttk.Frame):
         self.centroids.append(self.centroid_x)
         self.centroids_sm = gaussian_filter1d(self.centroids, sigma=100)
         x_time = range(len(self.centroids))
-        self.realtime.set_data(x_time, self.centroids)
+        self.timeseries.set_data(x_time, self.centroids)
         self.ax3.relim()
         self.ax3.autoscale_view()
         self.canvas3.draw()

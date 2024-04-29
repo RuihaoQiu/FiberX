@@ -1,13 +1,13 @@
 from ctypes import *
-import time
+import numpy as np
 
 source_path = r"C:\Users\ruihq\Desktop\ProfZ\sdk4.1\[4] USB Dome\[3] python demo for windows\SeaBreeze.dll"
 
 
 class SignalGenerator:
-    def __init__(self, int_time: int = 1000):
+    def __init__(self, int_time: int = 100):
         self.index = 0
-        self.n_length = 4096
+        self.n_length = 4048
         self.int_time = int_time
         self.lib = cdll.LoadLibrary(source_path)
         self.devcount = self.lib.seabreeze_open_all_spectrometers(0)
@@ -28,7 +28,7 @@ class SignalGenerator:
                 self.index, 0, self.wavelength, self.n_length
             )
             self.lib.seabreeze_set_laser_power(self.index, 0, 0)
-            self.x = list(self.wavelength)
+            self.x = np.array(self.wavelength)
 
     def stop_laser(self):
         # 关闭激光器
@@ -41,7 +41,7 @@ class SignalGenerator:
         self.lib.seabreeze_get_formatted_spectrum(
             self.index, 0, self.lightspec, self.n_length
         )
-        return list(self.lightspec)
+        return np.array(self.lightspec)
 
 
 if __name__ == "__main__":
