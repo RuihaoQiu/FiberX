@@ -8,6 +8,7 @@ import os
 import ctypes
 import random
 import pandas as pd
+import numpy as np
 from shapely.geometry import Polygon
 from scipy.ndimage import gaussian_filter1d
 
@@ -38,6 +39,8 @@ class App(ttk.Frame):
         self.min_idx = None
         self.fix_minimum = False
         self.centroid_x, self.centroid_y = None, None
+        self.intensities = []
+        self.mins = []
         self.centroids = []
 
         self.y_refs = None
@@ -381,11 +384,11 @@ class App(ttk.Frame):
 
         fig4, self.ax4 = plt.subplots()
         self.ax4.set_xlabel("Time")
-        self.ax4.set_ylabel("Y")
+        self.ax4.set_ylabel("Intensity")
 
-        canvas = FigureCanvasTkAgg(fig4, master=plot_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas4 = FigureCanvasTkAgg(fig4, master=plot_frame)
+        self.canvas4.draw()
+        self.canvas4.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         (self.intensity,) = self.ax4.plot([], [], "-", label="Real time")
 
@@ -410,9 +413,9 @@ class App(ttk.Frame):
         self.ax5.set_xlabel("Time")
         self.ax5.set_ylabel("Lowest Point")
 
-        canvas = FigureCanvasTkAgg(fig5, master=plot_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas5 = FigureCanvasTkAgg(fig5, master=plot_frame)
+        self.canvas5.draw()
+        self.canvas5.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         (self.lowest,) = self.ax5.plot([], [], "-", label="Real time")
 
@@ -482,19 +485,55 @@ class App(ttk.Frame):
             self.ts_running = True
 
     def start_absorb(self):
+        self.sample_time = int(self.sample_entry.get())
+        self.diff = int(self.diff_entry.get())
+        position = int(self.position_entry.get())
+        closest_x = self.find_interval(self.x, position)
+        self.idx_y = list(self.x).index(closest_x)
         if self.ts_running == True:
-            self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
-            self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
-            self.absorb.set_data(self.x, self.y_abs)
-            self.ax2.relim()
-            self.ax2.autoscale_view()
-            self.canvas2.draw()
-            # self.centroid.set_data([self.centroid_x], [self.centroid_y])
-            # self.update_min()
-            # self.update_centroid()
-            self.after(1000, self.start_absorb)
+            self.update_plots()
         else:
             self.ts_running = True
+
+    def update_plots(self):
+        self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
+        self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
+        min_idx = self.find_minimum(self.y_abs)
+
+        # centroid_x, centroid_y = self.find_centroid(
+        #     x=self.x, y=self.y_abs, min_idx=min_idx, diff=self.diff
+        # )
+        # self.centroids.append(centroid_x)
+        self.intensities.append(self.y_abs[self.idx_y])
+        self.mins.append(self.x[min_idx])
+        self.times = list(range(len(self.mins)))
+
+        self.update_plot2()
+        # self.update_plot3()
+        self.update_plot4()
+        self.update_plot5()
+        self.after(self.sample_time, self.update_plots)
+
+    def update_plot2(self):
+        self.absorb.set_data(self.x, self.y_abs)
+        self.ax2.relim()
+        self.ax2.autoscale_view()
+        self.canvas2.draw()
+
+    def update_plot3(self):
+        pass
+
+    def update_plot4(self):
+        self.intensity.set_data(self.times, self.intensities)
+        self.ax4.relim()
+        self.ax4.autoscale_view()
+        self.canvas4.draw()
+
+    def update_plot5(self):
+        self.lowest.set_data(self.times, self.mins)
+        self.ax5.relim()
+        self.ax5.autoscale_view()
+        self.canvas5.draw()
 
     def stop_absorb(self):
         self.ts_running = False
@@ -526,7 +565,7 @@ class App(ttk.Frame):
 
     @staticmethod
     def find_minimum(y):
-        min_index = y.index(min(y))
+        min_index = np.argmin(y)
         return min_index
 
     @staticmethod
@@ -550,7 +589,7 @@ class App(ttk.Frame):
         x_min = x[min_idx]
         xl = self.find_interval(x[:min_idx], x_min - diff)
         xr = self.find_interval(x[min_idx:], x_min + diff)
-        il, ir = x.index(xl), x.index(xr)
+        il, ir = list(x).index(xl), list(x).index(xr)
         boundary = list(zip(x[il:ir], y[il:ir]))
         polygon = Polygon(boundary)
         return polygon.centroid.x, polygon.centroid.y
