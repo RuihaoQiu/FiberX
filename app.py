@@ -498,15 +498,18 @@ class App(ttk.Frame):
     def update_plots(self):
         self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
         self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
-        min_idx = self.find_minimum(self.y_abs)
+        self.min_idx = self.find_minimum(self.y_abs)
 
         # centroid_x, centroid_y = self.find_centroid(
         #     x=self.x, y=self.y_abs, min_idx=min_idx, diff=self.diff
         # )
         # self.centroids.append(centroid_x)
+
         self.intensities.append(self.y_abs[self.idx_y])
-        self.mins.append(self.x[min_idx])
+        self.mins.append(self.x[self.min_idx])
         self.times = list(range(len(self.mins)))
+
+        self.update_min()
 
         self.update_plot2()
         # self.update_plot3()
@@ -541,7 +544,7 @@ class App(ttk.Frame):
     def update_min(self):
         if self.fix_minimum == False:
             self.min_idx = self.find_minimum(y=self.y_ab)
-            self.min_label.config(text=f"{self.x_ab[self.min_idx]:.3f}")
+            self.min_label.config(text=f"{self.x[self.min_idx]:.3f}")
         else:
             pass
 
