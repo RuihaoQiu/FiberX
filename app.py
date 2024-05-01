@@ -336,7 +336,7 @@ class App(ttk.Frame):
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         (self.absorb,) = self.ax2.plot([], [], "-", label="Real time")
-        (self.centroid,) = self.ax2.plot([], [], ".", label="Centroid")
+        (self.center,) = self.ax2.plot([], [], ".", label="Centroid")
 
         self.ax2.legend()
 
@@ -495,36 +495,57 @@ class App(ttk.Frame):
         else:
             self.ts_running = True
 
+    def make_sample_y(self):
+        i = random.randint(0, 9)
+        x_ab = self.df["Wavelength"].values
+        y_ab = self.df[f"Ratio_{i}"].values
+        return x_ab, y_ab
+
     def update_plots(self):
-        self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
+        # self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
+        self.x_ab, self.y_ab = self.make_sample_y()
         self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
         self.min_idx = self.find_minimum(self.y_abs)
 
-        # centroid_x, centroid_y = self.find_centroid(
-        #     x=self.x, y=self.y_abs, min_idx=min_idx, diff=self.diff
-        # )
-        # self.centroids.append(centroid_x)
+        if self.fix_minimum == False:
+            self.min_idx_display = self.find_minimum(self.y_abs)
+            self.update_min_value()
 
+        self.centroid_x, self.centroid_y = self.find_centroid(
+            x=self.x, y=self.y_abs, min_idx=self.min_idx_display, diff=self.diff
+        )
+        self.centroids.append(self.centroid_x)
         self.intensities.append(self.y_abs[self.idx_y])
+
+        self.min_idx = self.find_minimum(self.y_abs)
         self.mins.append(self.x[self.min_idx])
         self.times = list(range(len(self.mins)))
 
-        self.update_min()
-
+        self.update_center_value()
         self.update_plot2()
-        # self.update_plot3()
+        self.update_plot3()
         self.update_plot4()
         self.update_plot5()
         self.after(self.sample_time, self.update_plots)
 
+    def update_min_value(self):
+        self.min_label.config(text=f"{self.x[self.min_idx_display]:.3f}")
+
+    def update_center_value(self):
+        self.centroid_label.config(text=f"{self.centroid_x:.3f}")
+
     def update_plot2(self):
-        self.absorb.set_data(self.x, self.y_abs)
+        self.absorb.set_data(self.x_ab, self.y_abs)
+        self.center.set_data([self.centroid_x], [self.centroid_y])
         self.ax2.relim()
         self.ax2.autoscale_view()
         self.canvas2.draw()
 
     def update_plot3(self):
-        pass
+        self.timeseries.set_data(self.times, self.centroids)
+        self.ax3.relim()
+        self.ax3.autoscale_view()
+        self.canvas3.draw()
 
     def update_plot4(self):
         self.intensity.set_data(self.times, self.intensities)
@@ -540,13 +561,6 @@ class App(ttk.Frame):
 
     def stop_absorb(self):
         self.ts_running = False
-
-    def update_min(self):
-        if self.fix_minimum == False:
-            self.min_idx = self.find_minimum(y=self.y_ab)
-            self.min_label.config(text=f"{self.x[self.min_idx]:.3f}")
-        else:
-            pass
 
     def fix_min(self):
         self.fix_minimum = True
