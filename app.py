@@ -3,6 +3,7 @@ from tkinter import ttk
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+from matplotlib.widgets import RectangleSelector
 
 import os
 import ctypes
@@ -537,8 +538,11 @@ class App(ttk.Frame):
     def update_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
         self.center.set_data([self.centroid_x], [self.centroid_y])
-        self.ax2.relim()
-        self.ax2.autoscale_view()
+        # self.ax2.relim()
+        # self.ax2.autoscale_view()
+        self.rect_selector = RectangleSelector(
+            self.ax2, self.onselect_function, button=[1]
+        )
         self.canvas2.draw()
 
     def update_plot3(self):
@@ -621,6 +625,23 @@ class App(ttk.Frame):
     def setup_tab4(self):
         self.tab4 = ttk.Frame(self.notebook)
         self.notebook.add(self.tab4, text="强度时序")
+
+    # Function to be executed after selection
+    def onselect_function(self, eclick, erelease):
+
+        # Obtain (xmin, xmax, ymin, ymax) values
+        # for rectangle selector box using extent attribute.
+        extent = self.rect_selector.extents
+        print("Extents: ", extent)
+
+        # Zoom the selected part
+        # Set xlim range for plot as xmin to xmax
+        # of rectangle selector box.
+        plt.xlim(extent[0], extent[1])
+
+        # Set ylim range for plot as ymin to ymax
+        # of rectangle selector box.
+        plt.ylim(extent[2], extent[3])
 
     def save_all_data(self):
         result_file = make_results_file()
