@@ -234,13 +234,13 @@ class App(ttk.Frame):
             row=2, column=0, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
         )
 
-        save_button = ttk.Button(
+        stop_button = ttk.Button(
             control_frame,
             text="暂停时序",
             command=self.stop_absorb,
             style="Accent.TButton",
         )
-        save_button.grid(
+        stop_button.grid(
             row=2, column=1, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
         )
 
@@ -254,13 +254,13 @@ class App(ttk.Frame):
             row=3, column=0, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
         )
 
-        confirm_button = ttk.Button(
+        save_button = ttk.Button(
             control_frame,
             text="保存数据",
             command=self.save_all_data,
             style="Accent.TButton",
         )
-        confirm_button.grid(
+        save_button.grid(
             row=3, column=1, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
         )
 
@@ -364,9 +364,7 @@ class App(ttk.Frame):
         self.canvas3.draw()
         self.canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (self.timeseries,) = self.ax3.plot([], [], "-", label="Real time")
-
-        self.ax3.legend()
+        (self.timeseries,) = self.ax3.plot([], [], "-")
 
     def build_tab4(self):
         tab4 = ttk.Frame(self.notebook)
@@ -391,9 +389,7 @@ class App(ttk.Frame):
         self.canvas4.draw()
         self.canvas4.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (self.intensity,) = self.ax4.plot([], [], "-", label="Real time")
-
-        self.ax4.legend()
+        (self.intensity,) = self.ax4.plot([], [], "-")
 
     def build_tab5(self):
         tab5 = ttk.Frame(self.notebook)
@@ -418,9 +414,7 @@ class App(ttk.Frame):
         self.canvas5.draw()
         self.canvas5.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        (self.lowest,) = self.ax5.plot([], [], "-", label="Real time")
-
-        self.ax5.legend()
+        (self.lowest,) = self.ax5.plot([], [], "-")
 
     def load_dark(self, file_path):
         self.x_dark, self.y_dark = load_file(dark_folder + file_path.get())
@@ -491,10 +485,7 @@ class App(ttk.Frame):
         position = int(self.position_entry.get())
         closest_x = self.find_interval(self.x, position)
         self.idx_y = list(self.x).index(closest_x)
-        if self.ts_running == True:
-            self.update_plots()
-        else:
-            self.ts_running = True
+        self.update_plots()
 
     def make_sample_y(self):
         i = random.randint(0, 9)
@@ -503,31 +494,37 @@ class App(ttk.Frame):
         return x_ab, y_ab
 
     def update_plots(self):
-        # self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
-        self.x_ab, self.y_ab = self.make_sample_y()
-        self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
-        self.min_idx = self.find_minimum(self.y_abs)
+        if self.ts_running == True:
+            # self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
+            self.x_ab, self.y_ab = self.make_sample_y()
+            self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
+            self.min_idx = self.find_minimum(self.y_abs)
 
-        if self.fix_minimum == False:
-            self.min_idx_display = self.find_minimum(self.y_abs)
-            self.update_min_value()
+            if self.fix_minimum == False:
+                self.min_idx_display = self.find_minimum(self.y_abs)
+                self.update_min_value()
 
-        self.centroid_x, self.centroid_y = self.find_centroid(
-            x=self.x, y=self.y_abs, min_idx=self.min_idx_display, diff=self.diff
-        )
-        self.centroids.append(self.centroid_x)
-        self.intensities.append(self.y_abs[self.idx_y])
+            self.centroid_x, self.centroid_y = self.find_centroid(
+                x=self.x_ab, y=self.y_abs, min_idx=self.min_idx_display, diff=self.diff
+            )
+            self.centroids.append(self.centroid_x)
+            self.centroids_sm = gaussian_filter1d(self.centroids, sigma=100)
 
-        self.min_idx = self.find_minimum(self.y_abs)
-        self.mins.append(self.x[self.min_idx])
-        self.times = list(range(len(self.mins)))
+            self.intensities.append(self.y_abs[self.idx_y])
+            self.intensities_sm = gaussian_filter1d(self.intensities, sigma=100)
 
-        self.update_center_value()
-        self.update_plot2()
-        self.update_plot3()
-        self.update_plot4()
-        self.update_plot5()
-        self.after(self.sample_time, self.update_plots)
+            self.min_idx = self.find_minimum(self.y_abs)
+            self.mins.append(self.x_ab[self.min_idx])
+            self.times = list(range(len(self.mins)))
+
+            self.update_center_value()
+            self.update_plot2()
+            self.update_plot3()
+            self.update_plot4()
+            self.update_plot5()
+            self.after(self.sample_time, self.update_plots)
+        else:
+            self.ts_running = True
 
     def update_min_value(self):
         self.min_label.config(text=f"{self.x[self.min_idx_display]:.3f}")
@@ -538,11 +535,11 @@ class App(ttk.Frame):
     def update_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
         self.center.set_data([self.centroid_x], [self.centroid_y])
-        # self.ax2.relim()
-        # self.ax2.autoscale_view()
-        self.rect_selector = RectangleSelector(
-            self.ax2, self.onselect_function, button=[1]
-        )
+        self.ax2.relim()
+        self.ax2.autoscale_view()
+        # self.rect_selector = RectangleSelector(
+        #     self.ax2, self.onselect_function, button=[1]
+        # )
         self.canvas2.draw()
 
     def update_plot3(self):
@@ -615,9 +612,6 @@ class App(ttk.Frame):
         polygon = Polygon(boundary)
         return polygon.centroid.x, polygon.centroid.y
 
-    def save_absorb(self):
-        pass
-
     def setup_tab3(self):
         self.tab3 = ttk.Frame(self.notebook)
         self.notebook.add(self.tab3, text="时序")
@@ -626,21 +620,9 @@ class App(ttk.Frame):
         self.tab4 = ttk.Frame(self.notebook)
         self.notebook.add(self.tab4, text="强度时序")
 
-    # Function to be executed after selection
     def onselect_function(self, eclick, erelease):
-
-        # Obtain (xmin, xmax, ymin, ymax) values
-        # for rectangle selector box using extent attribute.
         extent = self.rect_selector.extents
-        print("Extents: ", extent)
-
-        # Zoom the selected part
-        # Set xlim range for plot as xmin to xmax
-        # of rectangle selector box.
         plt.xlim(extent[0], extent[1])
-
-        # Set ylim range for plot as ymin to ymax
-        # of rectangle selector box.
         plt.ylim(extent[2], extent[3])
 
     def save_all_data(self):
@@ -662,10 +644,18 @@ class App(ttk.Frame):
             {"Centroid": self.centroids, "Centroid(smooth)": self.centroids_sm}
         )
 
+        df4 = pd.DataFrame(
+            {"Intensity": self.intensities, "Intensity(smooth)": self.intensities_sm}
+        )
+
+        df5 = pd.DataFrame({"Minimal": self.mins})
+
         with pd.ExcelWriter(path=result_file) as writer:
             df1.to_excel(writer, sheet_name="光谱", index=False)
             df2.to_excel(writer, sheet_name="吸收", index=False)
             df3.to_excel(writer, sheet_name="时序", index=False)
+            df4.to_excel(writer, sheet_name="强度", index=False)
+            df5.to_excel(writer, sheet_name="最低点", index=False)
 
 
 if __name__ == "__main__":
