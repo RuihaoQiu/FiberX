@@ -302,6 +302,7 @@ class App(ttk.Frame):
         fig1, self.ax1 = plt.subplots()
         self.ax1.set_xlabel("Wavelength")
         self.ax1.set_ylabel("Intensity")
+        # self.ax1.set_xlim(400, 1100)
 
         self.canvas1 = FigureCanvasTkAgg(fig1, master=plot_frame)
         self.canvas1.draw()
@@ -331,6 +332,10 @@ class App(ttk.Frame):
         fig2, self.ax2 = plt.subplots()
         self.ax2.set_xlabel("Wavelength")
         self.ax2.set_ylabel("Ratio")
+
+        # self.rect_selector = RectangleSelector(
+        #     self.ax2, self.onselect_function, button=[1]
+        # )
 
         self.canvas2 = FigureCanvasTkAgg(fig2, master=plot_frame)
         self.canvas2.draw()
@@ -456,6 +461,12 @@ class App(ttk.Frame):
         int_time = int(self.int_entry.get())
         self.signal_generator = SignalGenerator(int_time=int_time)
         self.signal_generator.start()
+        # x = self.signal_generator.generate_x()
+        # y = self.signal_generator.generate_y()
+        # dx = max(x) - min(x)
+        # dy = max(y) - min(y)
+        # self.ax1.set_xlim(min(x) - 0.05 * dx, max(x) + 0.05 * dx)
+        # self.ax1.set_ylim(min(y) - 0.05 * dy, max(y) + 0.05 * dy)
         self.update_real()
 
     def stop_real(self):
@@ -470,9 +481,20 @@ class App(ttk.Frame):
             self.y_ab = self.df[f"Ratio_{i}"].to_list()
             self.absorb.set_data(self.x_ab, self.y_ab)
             self.centroid.set_data([self.centroid_x], [self.centroid_y])
-            self.ax2.relim()
-            self.ax2.autoscale_view()
-            self.canvas2.draw()
+
+            xmin, xmax = self.ax2.get_xlim()
+            ymin, ymax = self.ax2.get_ylim()
+
+            if (
+                min(self.x_ab) < xmin
+                or max(self.x_ab) > xmax
+                or min(self.y_ab) < ymin
+                or max(self.y_ab) > ymax
+            ):
+                self.ax2.relim()
+                self.ax2.autoscale_view()
+                self.canvas2.draw()
+
             self.update_min()
             self.update_centroid()
             self.after(self.sample_time, self.start_absorb)
@@ -535,11 +557,16 @@ class App(ttk.Frame):
     def update_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
         self.center.set_data([self.centroid_x], [self.centroid_y])
-        self.ax2.relim()
-        self.ax2.autoscale_view()
-        # self.rect_selector = RectangleSelector(
-        #     self.ax2, self.onselect_function, button=[1]
-        # )
+        xmin, xmax = self.ax2.get_xlim()
+        ymin, ymax = self.ax2.get_ylim()
+        if (
+            min(self.x_ab) < xmin
+            or max(self.x_ab) > xmax
+            or min(self.y_ab) < ymin
+            or max(self.y_ab) > ymax
+        ):
+            self.ax2.relim()
+            self.ax2.autoscale_view()
         self.canvas2.draw()
 
     def update_plot3(self):
@@ -620,7 +647,7 @@ class App(ttk.Frame):
         self.tab4 = ttk.Frame(self.notebook)
         self.notebook.add(self.tab4, text="强度时序")
 
-    def onselect_function(self, eclick, erelease):
+    def onselect_function(self):
         extent = self.rect_selector.extents
         plt.xlim(extent[0], extent[1])
         plt.ylim(extent[2], extent[3])
@@ -665,7 +692,7 @@ if __name__ == "__main__":
     # root.geometry("2500x1400")
 
     root.tk.call("source", "azure/azure.tcl")
-    root.tk.call("set_theme", "dark")
+    root.tk.call("set_theme", "light")
 
     app = App(root)
     app.pack(fill="both", expand=True)
