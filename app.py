@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RectangleSelector
 
@@ -26,7 +26,7 @@ from file_io import (
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
-plt.rcParams.update({"figure.figsize": (10.4, 6.7), "figure.autolayout": True})
+plt.rcParams.update({"figure.figsize": (10.4, 6.3), "figure.autolayout": True})
 
 
 class App(ttk.Frame):
@@ -308,23 +308,15 @@ class App(ttk.Frame):
         self.canvas1 = FigureCanvasTkAgg(fig1, master=plot_frame)
         self.canvas1.draw()
         self.canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        toolbar = NavigationToolbar2Tk(self.canvas1, plot_frame, pack_toolbar=False)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
         (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
         (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
         (self.realtime,) = self.ax1.plot([], [], "-", label="Real time")
 
         self.ax1.legend()
-
-        # auto_button = ttk.Button(
-        #     tab1,
-        #     text="自动适应",
-        #     command=self.auto_scale,
-        #     style="Accent.TButton",
-        # )
-        # auto_button.grid(
-        #     row=3,
-        #     column=2,
-        # )
 
     def auto_scale(self):
         self.ax1.relim()
@@ -348,10 +340,6 @@ class App(ttk.Frame):
         fig2, self.ax2 = plt.subplots()
         self.ax2.set_xlabel("Wavelength")
         self.ax2.set_ylabel("Ratio")
-
-        # self.rect_selector = RectangleSelector(
-        #     self.ax2, self.onselect_function, button=[1]
-        # )
 
         self.canvas2 = FigureCanvasTkAgg(fig2, master=plot_frame)
         self.canvas2.draw()
@@ -467,12 +455,7 @@ class App(ttk.Frame):
             self.y = self.signal_generator.generate_y()
             self.y_ab = gaussian_filter1d(self.y, sigma=100)
             self.realtime.set_data(self.x, self.y_ab)
-
             self.canvas1.mpl_connect("scroll_event", self.on_scroll)
-            # self.canvas1.mpl_connect("button_press_event", self.on_press)
-            # self.canvas1.mpl_connect("button_release_event", self.on_release)
-            # self.canvas1.mpl_connect("motion_notify_event", self.on_motion)
-            # self.canvas1.mpl_connect("right_button", self.on_right_click)
 
             self.canvas1.draw()
             self.after(self.int_time, self.update_real)
@@ -558,24 +541,28 @@ class App(ttk.Frame):
         self.center.set_data([self.centroid_x], [self.centroid_y])
         self.ax2.relim()
         self.ax2.autoscale_view()
+        self.canvas2.mpl_connect("scroll_event", self.on_scroll)
         self.canvas2.draw()
 
     def update_plot3(self):
         self.timeseries.set_data(self.times, self.centroids)
         self.ax3.relim()
         self.ax3.autoscale_view()
+        self.canvas3.mpl_connect("scroll_event", self.on_scroll)
         self.canvas3.draw()
 
     def update_plot4(self):
         self.intensity.set_data(self.times, self.intensities)
         self.ax4.relim()
         self.ax4.autoscale_view()
+        self.canvas4.mpl_connect("scroll_event", self.on_scroll)
         self.canvas4.draw()
 
     def update_plot5(self):
         self.lowest.set_data(self.times, self.mins)
         self.ax5.relim()
         self.ax5.autoscale_view()
+        self.canvas5.mpl_connect("scroll_event", self.on_scroll)
         self.canvas5.draw()
 
     def stop_absorb(self):
@@ -702,7 +689,6 @@ class App(ttk.Frame):
 
         # Determine the mouse position relative to the plot bounds
         if event.x > ax.bbox.xmin and event.x < ax.bbox.xmax:
-            # Zoom x-axis
             ax.set_xlim(
                 [
                     xdata - (xdata - xlim[0]) * scale_factor,
@@ -711,7 +697,6 @@ class App(ttk.Frame):
             )
 
         if event.y > ax.bbox.ymin and event.y < ax.bbox.ymax:
-            # Zoom y-axis
             ax.set_ylim(
                 [
                     ydata - (ydata - ylim[0]) * scale_factor,
