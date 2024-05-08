@@ -1,36 +1,50 @@
-from matplotlib.widgets import RectangleSelector
 import matplotlib.pyplot as plt
+import numpy as np
 
 
-# Function to be executed after selection
-def onselect_function(eclick, erelease):
+def on_scroll(event):
+    ax = event.inaxes
+    if ax is None:
+        return
 
-    # Obtain (xmin, xmax, ymin, ymax) values
-    # for rectangle selector box using extent attribute.
-    extent = rect_selector.extents
-    print("Extents: ", extent)
+    xdata, ydata = event.xdata, event.ydata  # Mouse position in data coords
+    if xdata is None or ydata is None:
+        return  # Ignore scroll events outside the axes
 
-    # Zoom the selected part
-    # Set xlim range for plot as xmin to xmax
-    # of rectangle selector box.
-    plt.xlim(extent[0], extent[1])
+    base_scale = 1.1  # Determines the zoom speed
+    if event.button == "up":
+        # Zoom in
+        scale_factor = 1 / base_scale
+    elif event.button == "down":
+        # Zoom out
+        scale_factor = base_scale
+    else:
+        # Unhandled button
+        return
 
-    # Set ylim range for plot as ymin to ymax
-    # of rectangle selector box.
-    plt.ylim(extent[2], extent[3])
+    # Set new limits
+    ax.set_xlim(
+        [
+            xdata - (xdata - ax.get_xlim()[0]) * scale_factor,
+            xdata + (ax.get_xlim()[1] - xdata) * scale_factor,
+        ]
+    )
+    ax.set_ylim(
+        [
+            ydata - (ydata - ax.get_ylim()[0]) * scale_factor,
+            ydata + (ax.get_ylim()[1] - ydata) * scale_factor,
+        ]
+    )
+    plt.draw()  # Redraw the current figure
 
 
-# plot a line graph for data n
 fig, ax = plt.subplots()
-n = [4, 5, 6, 10, 12, 15, 20, 23, 24, 19]
-ax.plot(n)
+x = np.linspace(0, 10, 400)
+y = np.sin(x)
+ax.plot(x, y, label="Sine wave")
+ax.legend()
 
-# Define a RectangleSelector at given axes ax.
-# It calls a function named 'onselect_function'
-# when the selection is completed.
-# Rectangular box is drawn to show the selected region.
-# Only left mouse button is allowed for doing selection.
-rect_selector = RectangleSelector(ax, onselect_function, button=[1])
+# Connect the scroll event to the zoom handler
+fig.canvas.mpl_connect("scroll_event", on_scroll)
 
-# Display graph
 plt.show()

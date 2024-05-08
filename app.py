@@ -26,7 +26,7 @@ from file_io import (
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
-plt.rcParams.update({"figure.figsize": (10.4, 6.9), "figure.autolayout": True})
+plt.rcParams.update({"figure.figsize": (10.4, 6.7), "figure.autolayout": True})
 
 
 class App(ttk.Frame):
@@ -34,7 +34,7 @@ class App(ttk.Frame):
         ttk.Frame.__init__(self)
         self.running = True
         self.ts_running = True
-        self.int_time = 100
+        self.int_time = 200
         self.sample_time = 1000
         self.diff = 50
         self.min_idx = None
@@ -43,6 +43,7 @@ class App(ttk.Frame):
         self.intensities = []
         self.mins = []
         self.centroids = []
+        self.coords = None
 
         self.y_refs = None
         self.y_darks = None
@@ -314,6 +315,21 @@ class App(ttk.Frame):
 
         self.ax1.legend()
 
+        # auto_button = ttk.Button(
+        #     tab1,
+        #     text="自动适应",
+        #     command=self.auto_scale,
+        #     style="Accent.TButton",
+        # )
+        # auto_button.grid(
+        #     row=3,
+        #     column=2,
+        # )
+
+    def auto_scale(self):
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+
     def build_tab2(self):
         tab2 = ttk.Frame(self.notebook)
         self.notebook.add(tab2, text="透射")
@@ -449,9 +465,15 @@ class App(ttk.Frame):
         if self.running == True:
             self.x = self.signal_generator.generate_x()
             self.y = self.signal_generator.generate_y()
-            self.realtime.set_data(self.x, self.y)
-            self.ax1.relim()
-            self.ax1.autoscale_view()
+            self.y_ab = gaussian_filter1d(self.y, sigma=100)
+            self.realtime.set_data(self.x, self.y_ab)
+
+            self.canvas1.mpl_connect("scroll_event", self.on_scroll)
+            # self.canvas1.mpl_connect("button_press_event", self.on_press)
+            # self.canvas1.mpl_connect("button_release_event", self.on_release)
+            # self.canvas1.mpl_connect("motion_notify_event", self.on_motion)
+            # self.canvas1.mpl_connect("right_button", self.on_right_click)
+
             self.canvas1.draw()
             self.after(self.int_time, self.update_real)
         else:
@@ -461,45 +483,17 @@ class App(ttk.Frame):
         int_time = int(self.int_entry.get())
         self.signal_generator = SignalGenerator(int_time=int_time)
         self.signal_generator.start()
-        # x = self.signal_generator.generate_x()
-        # y = self.signal_generator.generate_y()
-        # dx = max(x) - min(x)
-        # dy = max(y) - min(y)
-        # self.ax1.set_xlim(min(x) - 0.05 * dx, max(x) + 0.05 * dx)
-        # self.ax1.set_ylim(min(y) - 0.05 * dy, max(y) + 0.05 * dy)
+        self.x = self.signal_generator.generate_x()
+        self.y = self.signal_generator.generate_y()
+        self.realtime.set_data(self.x, self.y)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.canvas1.draw()
         self.update_real()
 
     def stop_real(self):
         self.signal_generator.stop_laser()
         self.running = False
-
-    def _start_absorb(self):
-        if self.ts_running == True:
-            self.sample_time = self.sample_entry.get()
-            i = random.randint(0, 9)
-            self.x_ab = self.df["Wavelength"].to_list()
-            self.y_ab = self.df[f"Ratio_{i}"].to_list()
-            self.absorb.set_data(self.x_ab, self.y_ab)
-            self.centroid.set_data([self.centroid_x], [self.centroid_y])
-
-            xmin, xmax = self.ax2.get_xlim()
-            ymin, ymax = self.ax2.get_ylim()
-
-            if (
-                min(self.x_ab) < xmin
-                or max(self.x_ab) > xmax
-                or min(self.y_ab) < ymin
-                or max(self.y_ab) > ymax
-            ):
-                self.ax2.relim()
-                self.ax2.autoscale_view()
-                self.canvas2.draw()
-
-            self.update_min()
-            self.update_centroid()
-            self.after(self.sample_time, self.start_absorb)
-        else:
-            self.ts_running = True
 
     def start_absorb(self):
         self.sample_time = int(self.sample_entry.get())
@@ -517,7 +511,11 @@ class App(ttk.Frame):
 
     def update_plots(self):
         if self.ts_running == True:
-            # self.y_ab = (self.y_refs - self.y) / (self.y - self.y_darks)
+            # self.x_ab = self.x[:3000]
+            # self.y_s = gaussian_filter1d(self.y, sigma=100)
+            # self.y_abs = abs((self.y_s - self.y_darks) / (self.y_refs - self.y_darks))[
+            #     :3000
+            # ]
             self.x_ab, self.y_ab = self.make_sample_y()
             self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
             self.min_idx = self.find_minimum(self.y_abs)
@@ -540,6 +538,7 @@ class App(ttk.Frame):
             self.times = list(range(len(self.mins)))
 
             self.update_center_value()
+
             self.update_plot2()
             self.update_plot3()
             self.update_plot4()
@@ -557,16 +556,8 @@ class App(ttk.Frame):
     def update_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
         self.center.set_data([self.centroid_x], [self.centroid_y])
-        xmin, xmax = self.ax2.get_xlim()
-        ymin, ymax = self.ax2.get_ylim()
-        if (
-            min(self.x_ab) < xmin
-            or max(self.x_ab) > xmax
-            or min(self.y_ab) < ymin
-            or max(self.y_ab) > ymax
-        ):
-            self.ax2.relim()
-            self.ax2.autoscale_view()
+        self.ax2.relim()
+        self.ax2.autoscale_view()
         self.canvas2.draw()
 
     def update_plot3(self):
@@ -596,7 +587,7 @@ class App(ttk.Frame):
     def update_centroid(self):
         self.diff = int(self.diff_entry.get())
         self.centroid_x, self.centroid_y = self.find_centroid(
-            x=self.x_ab, y=self.y_ab, min_idx=self.min_idx, diff=self.diff
+            x=self.x_ab, y=self.y_abs, min_idx=self.min_idx, diff=self.diff
         )
         self.centroid_label.config(text=f"{self.centroid_x:.3f}")
 
@@ -635,7 +626,9 @@ class App(ttk.Frame):
         xl = self.find_interval(x[:min_idx], x_min - diff)
         xr = self.find_interval(x[min_idx:], x_min + diff)
         il, ir = list(x).index(xl), list(x).index(xr)
-        boundary = list(zip(x[il:ir], y[il:ir]))
+        boundary = list(
+            zip(list(x[il:ir]) + [x[ir], x[il]], list(y[il:ir]) + [100, 100])
+        )
         polygon = Polygon(boundary)
         return polygon.centroid.x, polygon.centroid.y
 
@@ -683,6 +676,78 @@ class App(ttk.Frame):
             df3.to_excel(writer, sheet_name="时序", index=False)
             df4.to_excel(writer, sheet_name="强度", index=False)
             df5.to_excel(writer, sheet_name="最低点", index=False)
+
+    def on_scroll(self, event):
+        ax = event.inaxes
+        if ax is None:
+            return
+
+        xdata, ydata = event.xdata, event.ydata  # Mouse position in data coords
+        if xdata is None or ydata is None:
+            return  # Ignore scroll events outside the axes
+
+        base_scale = 1.1  # Determines the zoom speed
+        if event.button == "up":
+            # Zoom in
+            scale_factor = 1 / base_scale
+        elif event.button == "down":
+            # Zoom out
+            scale_factor = base_scale
+        else:
+            # Unhandled button
+            return
+
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+
+        # Determine the mouse position relative to the plot bounds
+        if event.x > ax.bbox.xmin and event.x < ax.bbox.xmax:
+            # Zoom x-axis
+            ax.set_xlim(
+                [
+                    xdata - (xdata - xlim[0]) * scale_factor,
+                    xdata + (xlim[1] - xdata) * scale_factor,
+                ]
+            )
+
+        if event.y > ax.bbox.ymin and event.y < ax.bbox.ymax:
+            # Zoom y-axis
+            ax.set_ylim(
+                [
+                    ydata - (ydata - ylim[0]) * scale_factor,
+                    ydata + (ylim[1] - ydata) * scale_factor,
+                ]
+            )
+
+    def on_press(self, event):
+        ax = event.inaxes
+        if ax is None:
+            return
+        self.coords = [event.xdata, event.ydata]
+
+    def on_release(self, event):
+        self.coords = None  # Reset the global coordinates
+
+    def on_motion(self, event):
+        ax = event.inaxes
+        if ax is None or self.coords is None:
+            return
+
+        dx = event.xdata - self.coords[0]
+        dy = event.ydata - self.coords[1]
+        self.coords = [event.xdata, event.ydata]
+
+        ax.set_xlim(ax.get_xlim()[0] - dx, ax.get_xlim()[1] - dx)
+        ax.set_ylim(ax.get_ylim()[0] - dy, ax.get_ylim()[1] - dy)
+
+    def on_right_click(event):
+        ax = event.inaxes
+        if ax is None:
+            return
+        if event.button == 3:  # Right mouse button
+            ax.autoscale(True, "both", True)  # Autoscale both x and y axes
+            ax.relim()  # Recalculate limits
+            ax.autoscale_view()  # Update view limits
 
 
 if __name__ == "__main__":
