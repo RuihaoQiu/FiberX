@@ -26,7 +26,7 @@ from file_io import (
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
 plt.style.use("ggplot")
-plt.rcParams.update({"figure.figsize": (10.4, 6.3), "figure.autolayout": True})
+plt.rcParams.update({"figure.figsize": (10.4, 6.5), "figure.autolayout": True})
 
 
 class App(ttk.Frame):
@@ -36,7 +36,7 @@ class App(ttk.Frame):
         self.ts_running = True
         self.int_time = 200
         self.sample_time = 1000
-        self.diff = 50
+        self.diff = 25
         self.min_idx = None
         self.fix_minimum = False
         self.centroid_x, self.centroid_y = None, None
@@ -44,6 +44,7 @@ class App(ttk.Frame):
         self.mins = []
         self.centroids = []
         self.coords = None
+        self.init_plots = False
 
         self.y_refs = None
         self.y_darks = None
@@ -54,23 +55,11 @@ class App(ttk.Frame):
             self.columnconfigure(index=index, weight=1)
             self.rowconfigure(index=index, weight=1)
 
-        self.setup_files()
-        self.setup_plots()
-
-        # self.signal_generator = SignalGenerator()
-        # self.signal_generator.start()
-        # Sizegrip
-        self.sizegrip = ttk.Sizegrip(self)
-        self.sizegrip.grid(row=100, column=100, padx=(0, 3), pady=(0, 3))
-
-    def setup_files(self):
         self.build_dark_block()
         self.build_bright_block()
         self.build_input_block()
         self.build_control_block()
         self.build_display_block()
-
-    def setup_plots(self):
         self.build_plot_block()
 
     def build_dark_block(self):
@@ -85,7 +74,7 @@ class App(ttk.Frame):
 
         var = tk.StringVar()
         filenames = os.listdir(dark_folder)[::-1]
-        for file in filenames:
+        for file in filenames[:3]:
             b = ttk.Checkbutton(
                 dark_frame,
                 text=file,
@@ -107,7 +96,7 @@ class App(ttk.Frame):
 
         var = tk.StringVar()
         filenames = os.listdir(bright_folder)[::-1]
-        for file in filenames:
+        for file in filenames[:3]:
             b = ttk.Checkbutton(
                 ref_frame,
                 text=file,
@@ -127,13 +116,13 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
-        label = ttk.Label(input_frame, text="积分时间:")
+        label = ttk.Label(input_frame, text="积分时间(ms):")
         label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
         self.int_entry = ttk.Entry(input_frame, width=10)
         self.int_entry.insert(0, self.int_time)
         self.int_entry.grid(row=0, column=1, padx=(10, 50), pady=(0, 10), sticky="ew")
 
-        label = ttk.Label(input_frame, text="采样时间:")
+        label = ttk.Label(input_frame, text="采样时间(ms):")
         label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
         self.sample_entry = ttk.Entry(input_frame, width=10)
         self.sample_entry.insert(0, self.sample_time)
@@ -303,7 +292,6 @@ class App(ttk.Frame):
         fig1, self.ax1 = plt.subplots()
         self.ax1.set_xlabel("Wavelength")
         self.ax1.set_ylabel("Intensity")
-        # self.ax1.set_xlim(400, 1100)
 
         self.canvas1 = FigureCanvasTkAgg(fig1, master=plot_frame)
         self.canvas1.draw()
@@ -345,10 +333,12 @@ class App(ttk.Frame):
         self.canvas2.draw()
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        toolbar = NavigationToolbar2Tk(self.canvas2, plot_frame, pack_toolbar=False)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
         (self.absorb,) = self.ax2.plot([], [], "-", label="Real time")
         (self.center,) = self.ax2.plot([], [], ".", label="Centroid")
-
-        self.ax2.legend()
 
     def build_tab3(self):
         tab3 = ttk.Frame(self.notebook)
@@ -372,6 +362,10 @@ class App(ttk.Frame):
         self.canvas3 = FigureCanvasTkAgg(fig3, master=plot_frame)
         self.canvas3.draw()
         self.canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        toolbar = NavigationToolbar2Tk(self.canvas3, plot_frame, pack_toolbar=False)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
         (self.timeseries,) = self.ax3.plot([], [], "-")
 
@@ -398,6 +392,10 @@ class App(ttk.Frame):
         self.canvas4.draw()
         self.canvas4.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        toolbar = NavigationToolbar2Tk(self.canvas4, plot_frame, pack_toolbar=False)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
         (self.intensity,) = self.ax4.plot([], [], "-")
 
     def build_tab5(self):
@@ -422,6 +420,10 @@ class App(ttk.Frame):
         self.canvas5 = FigureCanvasTkAgg(fig5, master=plot_frame)
         self.canvas5.draw()
         self.canvas5.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        toolbar = NavigationToolbar2Tk(self.canvas5, plot_frame, pack_toolbar=False)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
         (self.lowest,) = self.ax5.plot([], [], "-")
 
@@ -456,7 +458,6 @@ class App(ttk.Frame):
             self.y_ab = gaussian_filter1d(self.y, sigma=100)
             self.realtime.set_data(self.x, self.y_ab)
             self.canvas1.mpl_connect("scroll_event", self.on_scroll)
-
             self.canvas1.draw()
             self.after(self.int_time, self.update_real)
         else:
@@ -468,10 +469,10 @@ class App(ttk.Frame):
         self.signal_generator.start()
         self.x = self.signal_generator.generate_x()
         self.y = self.signal_generator.generate_y()
-        self.realtime.set_data(self.x, self.y)
+        self.y_ab = gaussian_filter1d(self.y, sigma=100)
+        self.realtime.set_data(self.x, self.y_ab)
         self.ax1.relim()
         self.ax1.autoscale_view()
-        self.canvas1.draw()
         self.update_real()
 
     def stop_real(self):
@@ -505,6 +506,7 @@ class App(ttk.Frame):
 
             if self.fix_minimum == False:
                 self.min_idx_display = self.find_minimum(self.y_abs)
+                self.mins.append(self.x_ab[self.min_idx_display])
                 self.update_min_value()
 
             self.centroid_x, self.centroid_y = self.find_centroid(
@@ -516,16 +518,16 @@ class App(ttk.Frame):
             self.intensities.append(self.y_abs[self.idx_y])
             self.intensities_sm = gaussian_filter1d(self.intensities, sigma=100)
 
-            self.min_idx = self.find_minimum(self.y_abs)
-            self.mins.append(self.x_ab[self.min_idx])
-            self.times = list(range(len(self.mins)))
+            self.times = list(range(len(self.centroids)))
 
             self.update_center_value()
-
-            self.update_plot2()
-            self.update_plot3()
-            self.update_plot4()
-            self.update_plot5()
+            if self.init_plots == False:
+                self.init_plot2()
+            else:
+                self.update_plot2()
+                self.update_plot3()
+                self.update_plot4()
+                self.update_plot5()
             self.after(self.sample_time, self.update_plots)
         else:
             self.ts_running = True
@@ -536,11 +538,17 @@ class App(ttk.Frame):
     def update_center_value(self):
         self.centroid_label.config(text=f"{self.centroid_x:.3f}")
 
-    def update_plot2(self):
+    def init_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
         self.center.set_data([self.centroid_x], [self.centroid_y])
         self.ax2.relim()
         self.ax2.autoscale_view()
+        self.canvas2.draw()
+        self.init_plots = True
+
+    def update_plot2(self):
+        self.absorb.set_data(self.x_ab, self.y_abs)
+        self.center.set_data([self.centroid_x], [self.centroid_y])
         self.canvas2.mpl_connect("scroll_event", self.on_scroll)
         self.canvas2.draw()
 
@@ -559,11 +567,12 @@ class App(ttk.Frame):
         self.canvas4.draw()
 
     def update_plot5(self):
-        self.lowest.set_data(self.times, self.mins)
-        self.ax5.relim()
-        self.ax5.autoscale_view()
-        self.canvas5.mpl_connect("scroll_event", self.on_scroll)
-        self.canvas5.draw()
+        if self.fix_minimum == False:
+            self.lowest.set_data(self.times, self.mins)
+            self.ax5.relim()
+            self.ax5.autoscale_view()
+            self.canvas5.mpl_connect("scroll_event", self.on_scroll)
+            self.canvas5.draw()
 
     def stop_absorb(self):
         self.ts_running = False
@@ -703,36 +712,6 @@ class App(ttk.Frame):
                     ydata + (ylim[1] - ydata) * scale_factor,
                 ]
             )
-
-    def on_press(self, event):
-        ax = event.inaxes
-        if ax is None:
-            return
-        self.coords = [event.xdata, event.ydata]
-
-    def on_release(self, event):
-        self.coords = None  # Reset the global coordinates
-
-    def on_motion(self, event):
-        ax = event.inaxes
-        if ax is None or self.coords is None:
-            return
-
-        dx = event.xdata - self.coords[0]
-        dy = event.ydata - self.coords[1]
-        self.coords = [event.xdata, event.ydata]
-
-        ax.set_xlim(ax.get_xlim()[0] - dx, ax.get_xlim()[1] - dx)
-        ax.set_ylim(ax.get_ylim()[0] - dy, ax.get_ylim()[1] - dy)
-
-    def on_right_click(event):
-        ax = event.inaxes
-        if ax is None:
-            return
-        if event.button == 3:  # Right mouse button
-            ax.autoscale(True, "both", True)  # Autoscale both x and y axes
-            ax.relim()  # Recalculate limits
-            ax.autoscale_view()  # Update view limits
 
 
 if __name__ == "__main__":
