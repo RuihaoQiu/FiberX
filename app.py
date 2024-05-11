@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RectangleSelector
 
 import os
 import ctypes
@@ -15,18 +15,18 @@ from scipy.ndimage import gaussian_filter1d
 
 from device_io import SignalGenerator
 
-from file_io import (
-    load_file,
-    save_dark_file,
-    save_bright_file,
-    make_results_file,
-    dark_folder,
-    bright_folder,
-)
+from file_io import load_file, save_dark_file, save_bright_file, make_results_file
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
-plt.style.use("ggplot")
-plt.rcParams.update({"figure.figsize": (10.4, 6.5), "figure.autolayout": True})
+plt.style.use("seaborn-v0_8-whitegrid")
+plt.rcParams.update(
+    {
+        "figure.figsize": (10.1, 6.6),
+        "figure.autolayout": True,
+        "lines.linewidth": 2.0,
+        "lines.markersize": 10.0,
+    }
+)
 
 
 class App(ttk.Frame):
@@ -43,68 +43,29 @@ class App(ttk.Frame):
         self.intensities = []
         self.mins = []
         self.centroids = []
-        self.coords = None
         self.init_plots = False
 
         self.y_refs = None
         self.y_darks = None
 
-        self.df = pd.read_csv("../time_samples.csv")
+        self.defaul_folder = os.path.join(os.getcwd(), "..", "data")
+        self.folder_path = self.defaul_folder
+        self.dark_folder = os.path.join(self.folder_path, "dark")
+        self.bright_folder = os.path.join(self.folder_path, "bright")
+        self.results_folder = os.path.join(self.folder_path, "results")
+
+        # self.df = pd.read_csv("../time_samples.csv")
 
         for index in [0, 1, 2]:
             self.columnconfigure(index=index, weight=1)
             self.rowconfigure(index=index, weight=1)
 
+        self.build_input_block()
         self.build_dark_block()
         self.build_bright_block()
-        self.build_input_block()
         self.build_control_block()
         self.build_display_block()
         self.build_plot_block()
-
-    def build_dark_block(self):
-        dark_frame = ttk.LabelFrame(self, text="暗光谱", padding=(20, 10))
-        dark_frame.grid(
-            row=1,
-            column=0,
-            padx=(10, 10),
-            pady=(10, 10),
-            sticky="nsew",
-        )
-
-        var = tk.StringVar()
-        filenames = os.listdir(dark_folder)[::-1]
-        for file in filenames[:3]:
-            b = ttk.Checkbutton(
-                dark_frame,
-                text=file,
-                variable=var,
-                onvalue=file,
-                command=lambda var=var: self.load_dark(var),
-            )
-            b.pack(anchor=tk.W)
-
-    def build_bright_block(self):
-        ref_frame = ttk.LabelFrame(self, text="参考光谱", padding=(20, 10))
-        ref_frame.grid(
-            row=2,
-            column=0,
-            padx=(10, 10),
-            pady=(10, 10),
-            sticky="nsew",
-        )
-
-        var = tk.StringVar()
-        filenames = os.listdir(bright_folder)[::-1]
-        for file in filenames[:3]:
-            b = ttk.Checkbutton(
-                ref_frame,
-                text=file,
-                variable=var,
-                onvalue=file,
-                command=lambda var=var: self.load_bright(var),
-            )
-            b.pack(anchor=tk.W)
 
     def build_input_block(self):
         input_frame = ttk.LabelFrame(self, text="设置", padding=(20, 10))
@@ -130,6 +91,16 @@ class App(ttk.Frame):
             row=1, column=1, padx=(10, 50), pady=(0, 10), sticky="ew"
         )
 
+        select_button = ttk.Button(
+            input_frame,
+            text="选择路径",
+            command=self.select_folder,
+            style="Accent.TButton",
+        )
+        select_button.grid(
+            row=2, column=0, padx=(10, 50), pady=(10, 10), columnspan=2, sticky="ew"
+        )
+
         start_button = ttk.Button(
             input_frame,
             text="开始",
@@ -137,7 +108,7 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         start_button.grid(
-            row=2, column=0, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
+            row=3, column=0, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
         )
 
         stop_button = ttk.Button(
@@ -147,7 +118,7 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         stop_button.grid(
-            row=2, column=1, padx=(10, 50), pady=(10, 10), columnspan=1, sticky="ew"
+            row=3, column=1, padx=(10, 50), pady=(10, 10), columnspan=1, sticky="ew"
         )
 
         save_dark_button = ttk.Button(
@@ -157,7 +128,7 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         save_dark_button.grid(
-            row=3, column=0, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
+            row=4, column=0, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
         )
 
         save_bright_button = ttk.Button(
@@ -167,8 +138,115 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         save_bright_button.grid(
-            row=3, column=1, padx=(10, 50), pady=(0, 10), columnspan=1, sticky="ew"
+            row=4, column=1, padx=(10, 50), pady=(0, 10), columnspan=1, sticky="ew"
         )
+
+    def select_folder(self):
+        self.folder_path = filedialog.askdirectory()
+        self.dark_folder = os.path.join(self.folder_path, "dark")
+        self.bright_folder = os.path.join(self.folder_path, "bright")
+        self.results_folder = os.path.join(self.folder_path, "results")
+        self.build_dark_block()
+        self.build_bright_block()
+
+    def start_real(self):
+        int_time = int(self.int_entry.get())
+        self.signal_generator = SignalGenerator(int_time=int_time)
+        self.signal_generator.start()
+        self.x = self.signal_generator.generate_x()
+        self.y = self.signal_generator.generate_y()
+        self.y_s = gaussian_filter1d(self.y, sigma=100)
+        self.realtime.set_data(self.x, self.y_s)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.update_real()
+
+    def update_real(self):
+        if self.running == True:
+            self.x = self.signal_generator.generate_x()
+            self.y = self.signal_generator.generate_y()
+            self.y_s = gaussian_filter1d(self.y, sigma=100)
+            self.realtime.set_data(self.x, self.y_s)
+            self.canvas1.mpl_connect("scroll_event", self.on_scroll)
+            self.canvas1.draw()
+            self.after(self.int_time, self.update_real)
+        else:
+            self.running = True
+
+    def stop_real(self):
+        self.signal_generator.stop_laser()
+        self.running = False
+
+    def save_dark(self):
+        save_dark_file(self.x, self.y)
+        self.build_dark_block()
+
+    def save_bright(self):
+        save_bright_file(self.x, self.y)
+        self.build_bright_block()
+
+    def build_dark_block(self):
+        dark_frame = ttk.LabelFrame(self, text="暗光谱", padding=(20, 10))
+        dark_frame.grid(
+            row=1,
+            column=0,
+            padx=(10, 10),
+            pady=(10, 10),
+            sticky="nsew",
+        )
+
+        var = tk.StringVar()
+        filenames = os.listdir(self.dark_folder)[::-1]
+        for file in filenames[:3]:
+            b = ttk.Checkbutton(
+                dark_frame,
+                text=file,
+                variable=var,
+                onvalue=file,
+                command=lambda var=var: self.load_dark(var),
+            )
+            b.pack(anchor=tk.W)
+
+    def load_dark(self, file_path):
+        file = os.path.join(self.dark_folder, file_path.get())
+        self.x_dark, self.y_dark = load_file(file)
+        self.y_darks = gaussian_filter1d(self.y_dark, sigma=100)
+        self.dark.set_data(self.x_dark, self.y_darks)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.canvas1.draw()
+
+    def build_bright_block(self):
+        ref_frame = ttk.LabelFrame(self, text="参考光谱", padding=(20, 10))
+        ref_frame.grid(
+            row=2,
+            column=0,
+            padx=(10, 10),
+            pady=(10, 10),
+            sticky="nsew",
+        )
+
+        var = tk.StringVar()
+
+        filenames = os.listdir(self.bright_folder)[::-1]
+        for file in filenames[:3]:
+            b = ttk.Checkbutton(
+                ref_frame,
+                text=file,
+                variable=var,
+                onvalue=file,
+                command=lambda var=var: self.load_bright(var),
+            )
+            b.pack(anchor=tk.W)
+
+    def load_bright(self, file_path):
+        file = os.path.join(self.bright_folder, file_path.get())
+        self.x_ref, self.y_ref = load_file(file)
+        self.y_refs = gaussian_filter1d(self.y_ref, sigma=100)
+        self.reference.set_data(self.x_ref, self.y_refs)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.canvas1.draw()
 
     def build_display_block(self):
         real_frame = ttk.LabelFrame(self, text="实时数据", padding=(20, 10))
@@ -254,12 +332,20 @@ class App(ttk.Frame):
             row=3, column=1, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
         )
 
+    def start_absorb(self):
+        self.sample_time = int(self.sample_entry.get())
+        self.diff = int(self.diff_entry.get())
+        position = int(self.position_entry.get())
+        closest_x = self.find_interval(self.x, position)
+        self.idx_y = list(self.x).index(closest_x)
+        self.update_plots()
+
     def build_plot_block(self):
         self.paned = ttk.PanedWindow(self)
         self.paned.grid(
             row=0,
             column=1,
-            padx=(25, 0),
+            padx=(25, 25),
             pady=(25, 10),
             sticky="nsew",
             rowspan=5,
@@ -300,15 +386,11 @@ class App(ttk.Frame):
         toolbar.update()
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
-        (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
         (self.realtime,) = self.ax1.plot([], [], "-", label="Real time")
+        (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
+        (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
 
         self.ax1.legend()
-
-    def auto_scale(self):
-        self.ax1.relim()
-        self.ax1.autoscale_view()
 
     def build_tab2(self):
         tab2 = ttk.Frame(self.notebook)
@@ -337,6 +419,8 @@ class App(ttk.Frame):
         toolbar.update()
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
+        self.canvas2.mpl_connect("scroll_event", self.on_scroll)
+
         (self.absorb,) = self.ax2.plot([], [], "-", label="Real time")
         (self.center,) = self.ax2.plot([], [], ".", label="Centroid")
 
@@ -357,7 +441,7 @@ class App(ttk.Frame):
 
         fig3, self.ax3 = plt.subplots()
         self.ax3.set_xlabel("Time")
-        self.ax3.set_ylabel("Y")
+        self.ax3.set_ylabel("Wavelength")
 
         self.canvas3 = FigureCanvasTkAgg(fig3, master=plot_frame)
         self.canvas3.draw()
@@ -366,6 +450,8 @@ class App(ttk.Frame):
         toolbar = NavigationToolbar2Tk(self.canvas3, plot_frame, pack_toolbar=False)
         toolbar.update()
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.canvas3.mpl_connect("scroll_event", self.on_scroll)
 
         (self.timeseries,) = self.ax3.plot([], [], "-")
 
@@ -396,6 +482,8 @@ class App(ttk.Frame):
         toolbar.update()
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
+        self.canvas4.mpl_connect("scroll_event", self.on_scroll)
+
         (self.intensity,) = self.ax4.plot([], [], "-")
 
     def build_tab5(self):
@@ -415,7 +503,7 @@ class App(ttk.Frame):
 
         fig5, self.ax5 = plt.subplots()
         self.ax5.set_xlabel("Time")
-        self.ax5.set_ylabel("Lowest Point")
+        self.ax5.set_ylabel("Wavelength")
 
         self.canvas5 = FigureCanvasTkAgg(fig5, master=plot_frame)
         self.canvas5.draw()
@@ -425,67 +513,9 @@ class App(ttk.Frame):
         toolbar.update()
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
+        self.canvas5.mpl_connect("scroll_event", self.on_scroll)
+
         (self.lowest,) = self.ax5.plot([], [], "-")
-
-    def load_dark(self, file_path):
-        self.x_dark, self.y_dark = load_file(dark_folder + file_path.get())
-        self.y_darks = gaussian_filter1d(self.y_dark, sigma=100)
-        self.dark.set_data(self.x_dark, self.y_darks)
-        self.ax1.relim()
-        self.ax1.autoscale_view()
-        self.canvas1.draw()
-
-    def load_bright(self, file_path):
-        self.x_ref, self.y_ref = load_file(bright_folder + file_path.get())
-        self.y_refs = gaussian_filter1d(self.y_ref, sigma=100)
-        self.reference.set_data(self.x_ref, self.y_refs)
-        self.ax1.relim()
-        self.ax1.autoscale_view()
-        self.canvas1.draw()
-
-    def save_dark(self):
-        save_dark_file(self.x, self.y)
-        self.build_dark_block()
-
-    def save_bright(self):
-        save_bright_file(self.x, self.y)
-        self.build_bright_block()
-
-    def update_real(self):
-        if self.running == True:
-            self.x = self.signal_generator.generate_x()
-            self.y = self.signal_generator.generate_y()
-            self.y_ab = gaussian_filter1d(self.y, sigma=100)
-            self.realtime.set_data(self.x, self.y_ab)
-            self.canvas1.mpl_connect("scroll_event", self.on_scroll)
-            self.canvas1.draw()
-            self.after(self.int_time, self.update_real)
-        else:
-            self.running = True
-
-    def start_real(self):
-        int_time = int(self.int_entry.get())
-        self.signal_generator = SignalGenerator(int_time=int_time)
-        self.signal_generator.start()
-        self.x = self.signal_generator.generate_x()
-        self.y = self.signal_generator.generate_y()
-        self.y_ab = gaussian_filter1d(self.y, sigma=100)
-        self.realtime.set_data(self.x, self.y_ab)
-        self.ax1.relim()
-        self.ax1.autoscale_view()
-        self.update_real()
-
-    def stop_real(self):
-        self.signal_generator.stop_laser()
-        self.running = False
-
-    def start_absorb(self):
-        self.sample_time = int(self.sample_entry.get())
-        self.diff = int(self.diff_entry.get())
-        position = int(self.position_entry.get())
-        closest_x = self.find_interval(self.x, position)
-        self.idx_y = list(self.x).index(closest_x)
-        self.update_plots()
 
     def make_sample_y(self):
         i = random.randint(0, 9)
@@ -495,13 +525,14 @@ class App(ttk.Frame):
 
     def update_plots(self):
         if self.ts_running == True:
-            # self.x_ab = self.x[:3000]
-            # self.y_s = gaussian_filter1d(self.y, sigma=100)
-            # self.y_abs = abs((self.y_s - self.y_darks) / (self.y_refs - self.y_darks))[
-            #     :3000
-            # ]
-            self.x_ab, self.y_ab = self.make_sample_y()
-            self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
+            self.x_ab = self.x[:3000]
+            self.y_s = gaussian_filter1d(self.y, sigma=100)
+            self.y_abs = (
+                abs((self.y_s - self.y_darks) / (self.y_refs - self.y_darks))[:3000]
+                * 100
+            )
+            # self.x_ab, self.y_ab = self.make_sample_y()
+            # self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
             self.min_idx = self.find_minimum(self.y_abs)
 
             if self.fix_minimum == False:
@@ -549,21 +580,21 @@ class App(ttk.Frame):
     def update_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
         self.center.set_data([self.centroid_x], [self.centroid_y])
-        self.canvas2.mpl_connect("scroll_event", self.on_scroll)
+        # self.canvas2.mpl_connect("scroll_event", self.on_scroll)
         self.canvas2.draw()
 
     def update_plot3(self):
         self.timeseries.set_data(self.times, self.centroids)
         self.ax3.relim()
         self.ax3.autoscale_view()
-        self.canvas3.mpl_connect("scroll_event", self.on_scroll)
+        # self.canvas3.mpl_connect("scroll_event", self.on_scroll)
         self.canvas3.draw()
 
     def update_plot4(self):
         self.intensity.set_data(self.times, self.intensities)
         self.ax4.relim()
         self.ax4.autoscale_view()
-        self.canvas4.mpl_connect("scroll_event", self.on_scroll)
+        # self.canvas4.mpl_connect("scroll_event", self.on_scroll)
         self.canvas4.draw()
 
     def update_plot5(self):
@@ -571,7 +602,7 @@ class App(ttk.Frame):
             self.lowest.set_data(self.times, self.mins)
             self.ax5.relim()
             self.ax5.autoscale_view()
-            self.canvas5.mpl_connect("scroll_event", self.on_scroll)
+            # self.canvas5.mpl_connect("scroll_event", self.on_scroll)
             self.canvas5.draw()
 
     def stop_absorb(self):
@@ -627,19 +658,6 @@ class App(ttk.Frame):
         )
         polygon = Polygon(boundary)
         return polygon.centroid.x, polygon.centroid.y
-
-    def setup_tab3(self):
-        self.tab3 = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab3, text="时序")
-
-    def setup_tab4(self):
-        self.tab4 = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab4, text="强度时序")
-
-    def onselect_function(self):
-        extent = self.rect_selector.extents
-        plt.xlim(extent[0], extent[1])
-        plt.ylim(extent[2], extent[3])
 
     def save_all_data(self):
         result_file = make_results_file()
@@ -697,7 +715,7 @@ class App(ttk.Frame):
         ylim = ax.get_ylim()
 
         # Determine the mouse position relative to the plot bounds
-        if event.x > ax.bbox.xmin and event.x < ax.bbox.xmax:
+        if (ydata - ylim[0]) / (ylim[1] - ylim[0]) < 0.1:
             ax.set_xlim(
                 [
                     xdata - (xdata - xlim[0]) * scale_factor,
@@ -705,7 +723,7 @@ class App(ttk.Frame):
                 ]
             )
 
-        if event.y > ax.bbox.ymin and event.y < ax.bbox.ymax:
+        elif (xdata - xlim[0]) / (xlim[1] - xlim[0]) < 0.1:
             ax.set_ylim(
                 [
                     ydata - (ydata - ylim[0]) * scale_factor,
