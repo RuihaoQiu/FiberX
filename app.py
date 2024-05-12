@@ -6,6 +6,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import matplotlib.pyplot as plt
 
 import os
+import sys
 import ctypes
 import random
 import pandas as pd
@@ -14,7 +15,6 @@ from shapely.geometry import Polygon
 from scipy.ndimage import gaussian_filter1d
 
 from device_io import SignalGenerator
-
 from file_io import load_file, save_dark_file, save_bright_file, make_results_file
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -48,17 +48,25 @@ class App(ttk.Frame):
         self.y_refs = None
         self.y_darks = None
 
-        self.defaul_folder = os.path.join(os.getcwd(), "..", "data")
-        self.folder_path = self.defaul_folder
-        self.dark_folder = os.path.join(self.folder_path, "dark")
-        self.bright_folder = os.path.join(self.folder_path, "bright")
-        self.results_folder = os.path.join(self.folder_path, "results")
+        # self.defaul_folder = os.path.join(os.getcwd(), "..", "data")
+        # self.folder_path = self.defaul_folder
+        # self.dark_folder = os.path.join(self.folder_path, "dark")
+        # self.bright_folder = os.path.join(self.folder_path, "bright")
+        # self.results_folder = os.path.join(self.folder_path, "results")
+
+        self.folder_path = None
+        self.dark_folder = None
+        self.bright_folder = None
+        self.results_folder = None
 
         # self.df = pd.read_csv("../time_samples.csv")
 
         for index in [0, 1, 2]:
             self.columnconfigure(index=index, weight=1)
             self.rowconfigure(index=index, weight=1)
+
+        style = ttk.Style()
+        style.configure("Accent.TButton", foreground="white")
 
         self.build_input_block()
         self.build_dark_block()
@@ -178,11 +186,11 @@ class App(ttk.Frame):
         self.running = False
 
     def save_dark(self):
-        save_dark_file(self.x, self.y)
+        save_dark_file(self.x, self.y, self.dark_folder)
         self.build_dark_block()
 
     def save_bright(self):
-        save_bright_file(self.x, self.y)
+        save_bright_file(self.x, self.y, self.bright_folder)
         self.build_bright_block()
 
     def build_dark_block(self):
@@ -196,16 +204,20 @@ class App(ttk.Frame):
         )
 
         var = tk.StringVar()
-        filenames = os.listdir(self.dark_folder)[::-1]
-        for file in filenames[:3]:
-            b = ttk.Checkbutton(
-                dark_frame,
-                text=file,
-                variable=var,
-                onvalue=file,
-                command=lambda var=var: self.load_dark(var),
-            )
-            b.pack(anchor=tk.W)
+        if self.dark_folder:
+            filenames = os.listdir(self.dark_folder)[::-1]
+            for file in filenames[:4]:
+                b = ttk.Checkbutton(
+                    dark_frame,
+                    text=file,
+                    variable=var,
+                    onvalue=file,
+                    command=lambda var=var: self.load_dark(var),
+                )
+                b.pack(anchor=tk.W)
+        else:
+            label = ttk.Label(dark_frame, text="请选择数据文件。")
+            label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
 
     def load_dark(self, file_path):
         file = os.path.join(self.dark_folder, file_path.get())
@@ -227,17 +239,17 @@ class App(ttk.Frame):
         )
 
         var = tk.StringVar()
-
-        filenames = os.listdir(self.bright_folder)[::-1]
-        for file in filenames[:3]:
-            b = ttk.Checkbutton(
-                ref_frame,
-                text=file,
-                variable=var,
-                onvalue=file,
-                command=lambda var=var: self.load_bright(var),
-            )
-            b.pack(anchor=tk.W)
+        if self.bright_folder:
+            filenames = os.listdir(self.bright_folder)[::-1]
+            for file in filenames[:4]:
+                b = ttk.Checkbutton(
+                    ref_frame,
+                    text=file,
+                    variable=var,
+                    onvalue=file,
+                    command=lambda var=var: self.load_bright(var),
+                )
+                b.pack(anchor=tk.W)
 
     def load_bright(self, file_path):
         file = os.path.join(self.bright_folder, file_path.get())
@@ -580,21 +592,18 @@ class App(ttk.Frame):
     def update_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
         self.center.set_data([self.centroid_x], [self.centroid_y])
-        # self.canvas2.mpl_connect("scroll_event", self.on_scroll)
         self.canvas2.draw()
 
     def update_plot3(self):
         self.timeseries.set_data(self.times, self.centroids)
         self.ax3.relim()
         self.ax3.autoscale_view()
-        # self.canvas3.mpl_connect("scroll_event", self.on_scroll)
         self.canvas3.draw()
 
     def update_plot4(self):
         self.intensity.set_data(self.times, self.intensities)
         self.ax4.relim()
         self.ax4.autoscale_view()
-        # self.canvas4.mpl_connect("scroll_event", self.on_scroll)
         self.canvas4.draw()
 
     def update_plot5(self):
@@ -602,7 +611,6 @@ class App(ttk.Frame):
             self.lowest.set_data(self.times, self.mins)
             self.ax5.relim()
             self.ax5.autoscale_view()
-            # self.canvas5.mpl_connect("scroll_event", self.on_scroll)
             self.canvas5.draw()
 
     def stop_absorb(self):
@@ -660,7 +668,7 @@ class App(ttk.Frame):
         return polygon.centroid.x, polygon.centroid.y
 
     def save_all_data(self):
-        result_file = make_results_file()
+        result_file = make_results_file(self.results_folder)
 
         df1 = pd.DataFrame(
             {
@@ -672,7 +680,7 @@ class App(ttk.Frame):
             }
         )
 
-        df2 = pd.DataFrame({"Wave Length": self.x_ab, "Ratio": self.y_ab})
+        df2 = pd.DataFrame({"Wave Length": self.x_ab, "Ratio": self.y_abs})
 
         df3 = pd.DataFrame(
             {"Centroid": self.centroids, "Centroid(smooth)": self.centroids_sm}
@@ -732,13 +740,19 @@ class App(ttk.Frame):
             )
 
 
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("FiberX")
     root.state("zoomed")
-    # root.geometry("2500x1400")
 
-    root.tk.call("source", "azure/azure.tcl")
+    azure_path = resource_path("azure/azure.tcl")
+    root.tk.call("source", azure_path)
     root.tk.call("set_theme", "light")
 
     app = App(root)

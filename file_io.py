@@ -1,5 +1,6 @@
 import pandas as pd
 import time
+import os
 
 
 dark_folder = "../data/dark/"
@@ -18,19 +19,22 @@ def load_file(file_path):
     return x, y
 
 
-def save_dark_file(x, y):
+def save_dark_file(x, y, folder):
     timestr = time.strftime("%y%m%d-%H%M%S")
-    path = dark_folder + "dark-" + timestr + ".csv"
+    filename = "dark-" + timestr + ".csv"
+    path = os.path.join(folder, filename)
     save_file(x, y, file_path=path)
 
 
-def save_bright_file(x, y):
+def save_bright_file(x, y, folder):
     timestr = time.strftime("%y%m%d-%H%M%S")
-    path = bright_folder + "bright-" + timestr + ".csv"
+    filename = "bright-" + timestr + ".csv"
+    path = os.path.join(folder, filename)
     save_file(x, y, file_path=path)
 
 
-def make_results_file():
+def make_results_file(folder):
     timestr = time.strftime("%y%m%d-%H%M%S")
-    path = results_folder + "result-" + timestr + ".xlsx"
+    filename = "result-" + timestr + ".xlsx"
+    path = os.path.join(folder, filename)
     return path
