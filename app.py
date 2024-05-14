@@ -6,18 +6,26 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import matplotlib.pyplot as plt
 
 import os
-import sys
 import ctypes
 import random
 import pandas as pd
+import openpyxl
 import numpy as np
 from shapely.geometry import Polygon
 from scipy.ndimage import gaussian_filter1d
 
-from device_io import SignalGenerator
-from file_io import load_file, save_dark_file, save_bright_file, make_results_file
+from device_io import SignalGenerator, resource_path
+from file_io import (
+    load_file,
+    save_dark_file,
+    save_bright_file,
+    make_results_file,
+    make_results_path,
+)
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
+ctypes.windll.kernel32.SetDllDirectoryW(None)
+
 plt.style.use("seaborn-v0_8-whitegrid")
 plt.rcParams.update(
     {
@@ -37,27 +45,43 @@ class App(ttk.Frame):
         self.int_time = 200
         self.sample_time = 1000
         self.diff = 25
+        self.ini_position = 700
+        self.position = None
         self.min_idx = None
+        self.min_idx_display = None
         self.fix_minimum = False
         self.centroid_x, self.centroid_y = None, None
         self.intensities = []
+        self.intensities_sm = []
         self.mins = []
         self.centroids = []
+        self.centroids_sm = []
+
+        self.init_absorb = False
         self.init_plots = False
 
-        self.y_refs = None
-        self.y_darks = None
+        self.x_dark = []
+        self.y_dark = []
+        self.x_ref = []
+        self.y_ref = []
+        self.y_refs = []
+        self.y_darks = []
 
-        # self.defaul_folder = os.path.join(os.getcwd(), "..", "data")
-        # self.folder_path = self.defaul_folder
-        # self.dark_folder = os.path.join(self.folder_path, "dark")
-        # self.bright_folder = os.path.join(self.folder_path, "bright")
-        # self.results_folder = os.path.join(self.folder_path, "results")
+        self.x_ab = []
+        self.y_abs = []
 
-        self.folder_path = None
-        self.dark_folder = None
-        self.bright_folder = None
-        self.results_folder = None
+        self.dark_file, self.bright_file = None, None
+
+        if os.path.exists("data"):
+            self.folder_path = "data"
+            self.dark_folder = os.path.join(self.folder_path, "dark")
+            self.bright_folder = os.path.join(self.folder_path, "bright")
+            self.results_folder = os.path.join(self.folder_path, "results")
+        else:
+            self.folder_path = None
+            self.dark_folder = None
+            self.bright_folder = None
+            self.results_folder = None
 
         # self.df = pd.read_csv("../time_samples.csv")
 
@@ -157,7 +181,7 @@ class App(ttk.Frame):
         self.build_dark_block()
         self.build_bright_block()
 
-    def start_real(self):
+    def init_real(self):
         int_time = int(self.int_entry.get())
         self.signal_generator = SignalGenerator(int_time=int_time)
         self.signal_generator.start()
@@ -167,7 +191,15 @@ class App(ttk.Frame):
         self.realtime.set_data(self.x, self.y_s)
         self.ax1.relim()
         self.ax1.autoscale_view()
-        self.update_real()
+        self.init_absorb = True
+        self.init_ratio()
+
+    def start_real(self):
+        if self.init_absorb == False:
+            self.init_real()
+            self.update_real()
+        else:
+            self.update_real()
 
     def update_real(self):
         if self.running == True:
@@ -177,12 +209,12 @@ class App(ttk.Frame):
             self.realtime.set_data(self.x, self.y_s)
             self.canvas1.mpl_connect("scroll_event", self.on_scroll)
             self.canvas1.draw()
+            self.update_ratio()
             self.after(self.int_time, self.update_real)
         else:
             self.running = True
 
     def stop_real(self):
-        self.signal_generator.stop_laser()
         self.running = False
 
     def save_dark(self):
@@ -220,13 +252,17 @@ class App(ttk.Frame):
             label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
 
     def load_dark(self, file_path):
-        file = os.path.join(self.dark_folder, file_path.get())
-        self.x_dark, self.y_dark = load_file(file)
-        self.y_darks = gaussian_filter1d(self.y_dark, sigma=100)
-        self.dark.set_data(self.x_dark, self.y_darks)
-        self.ax1.relim()
-        self.ax1.autoscale_view()
-        self.canvas1.draw()
+        self.dark_file = os.path.join(self.dark_folder, file_path.get())
+        try:
+            self.x_dark, self.y_dark = load_file(self.dark_file)
+            self.y_darks = gaussian_filter1d(self.y_dark, sigma=100)
+            self.dark.set_data(self.x_dark, self.y_darks)
+            self.ax1.relim()
+            self.ax1.autoscale_view()
+            self.canvas1.draw()
+        except FileNotFoundError:
+            self.dark.set_data([], [])
+            self.canvas1.draw()
 
     def build_bright_block(self):
         ref_frame = ttk.LabelFrame(self, text="参考光谱", padding=(20, 10))
@@ -252,13 +288,17 @@ class App(ttk.Frame):
                 b.pack(anchor=tk.W)
 
     def load_bright(self, file_path):
-        file = os.path.join(self.bright_folder, file_path.get())
-        self.x_ref, self.y_ref = load_file(file)
-        self.y_refs = gaussian_filter1d(self.y_ref, sigma=100)
-        self.reference.set_data(self.x_ref, self.y_refs)
-        self.ax1.relim()
-        self.ax1.autoscale_view()
-        self.canvas1.draw()
+        self.bright_file = os.path.join(self.bright_folder, file_path.get())
+        try:
+            self.x_ref, self.y_ref = load_file(self.bright_file)
+            self.y_refs = gaussian_filter1d(self.y_ref, sigma=100)
+            self.reference.set_data(self.x_ref, self.y_refs)
+            self.ax1.relim()
+            self.ax1.autoscale_view()
+            self.canvas1.draw()
+        except FileNotFoundError:
+            self.reference.set_data([], [])
+            self.canvas1.draw()
 
     def build_display_block(self):
         real_frame = ttk.LabelFrame(self, text="实时数据", padding=(20, 10))
@@ -273,13 +313,13 @@ class App(ttk.Frame):
         label = ttk.Label(real_frame, text="最低点:")
         label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
 
-        self.min_label = ttk.Label(real_frame, text="123.123", font=("Arial", 18))
+        self.min_label = ttk.Label(real_frame, text="", font=("Arial", 18))
         self.min_label.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
 
         label = ttk.Label(real_frame, text="质心:")
         label.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="ew")
 
-        self.centroid_label = ttk.Label(real_frame, text="123.123", font=("Arial", 18))
+        self.centroid_label = ttk.Label(real_frame, text="", font=("Arial", 18))
         self.centroid_label.grid(row=2, column=1, padx=10, pady=(0, 10), sticky="ew")
 
     def build_control_block(self):
@@ -301,7 +341,7 @@ class App(ttk.Frame):
         label = ttk.Label(control_frame, text="强度位置:")
         label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
         self.position_entry = ttk.Entry(control_frame, width=7)
-        self.position_entry.insert(0, 700)
+        self.position_entry.insert(0, self.ini_position)
         self.position_entry.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
 
         start_button = ttk.Button(
@@ -337,7 +377,7 @@ class App(ttk.Frame):
         save_button = ttk.Button(
             control_frame,
             text="保存数据",
-            command=self.save_all_data,
+            command=lambda: self.save_data(),
             style="Accent.TButton",
         )
         save_button.grid(
@@ -347,8 +387,8 @@ class App(ttk.Frame):
     def start_absorb(self):
         self.sample_time = int(self.sample_entry.get())
         self.diff = int(self.diff_entry.get())
-        position = int(self.position_entry.get())
-        closest_x = self.find_interval(self.x, position)
+        self.position = int(self.position_entry.get())
+        closest_x = self.find_interval(self.x, self.position)
         self.idx_y = list(self.x).index(closest_x)
         self.update_plots()
 
@@ -529,37 +569,54 @@ class App(ttk.Frame):
 
         (self.lowest,) = self.ax5.plot([], [], "-")
 
-    def make_sample_y(self):
+    def _make_absorb(self):
         i = random.randint(0, 9)
-        x_ab = self.df["Wavelength"].values
-        y_ab = self.df[f"Ratio_{i}"].values
-        return x_ab, y_ab
+        self.x_ab = self.df["Wavelength"].values
+        self.y_abs = self.df[f"Ratio_{i}"].values
+
+    def make_absorb(self):
+        self.x_ab = self.x[:3000]
+        self.y_abs = (
+            abs(
+                (self.y_s[:3000] - self.y_darks[:3000])
+                / (self.y_refs[:3000] - self.y_darks[:3000])
+            )
+            * 100
+        )
+
+    def init_ratio(self):
+        if (len(self.y_refs) > 0) and (len(self.y_darks) > 0):
+            self.make_absorb()
+            self.init_plot2()
+        else:
+            pass
+
+    def update_ratio(self):
+        if (len(self.y_refs) > 0) and (len(self.y_darks) > 0):
+            self.make_absorb()
+            self.update_plot2()
+        else:
+            pass
 
     def update_plots(self):
         if self.ts_running == True:
-            self.x_ab = self.x[:3000]
-            self.y_s = gaussian_filter1d(self.y, sigma=100)
-            self.y_abs = (
-                abs((self.y_s - self.y_darks) / (self.y_refs - self.y_darks))[:3000]
-                * 100
-            )
-            # self.x_ab, self.y_ab = self.make_sample_y()
-            # self.y_abs = gaussian_filter1d(self.y_ab, sigma=100)
+            self.make_absorb()
             self.min_idx = self.find_minimum(self.y_abs)
 
             if self.fix_minimum == False:
-                self.min_idx_display = self.find_minimum(self.y_abs)
-                self.mins.append(self.x_ab[self.min_idx_display])
+                self.min_idx_display = self.min_idx
                 self.update_min_value()
+
+            self.mins.append(self.x_ab[self.min_idx])
 
             self.centroid_x, self.centroid_y = self.find_centroid(
                 x=self.x_ab, y=self.y_abs, min_idx=self.min_idx_display, diff=self.diff
             )
             self.centroids.append(self.centroid_x)
-            self.centroids_sm = gaussian_filter1d(self.centroids, sigma=100)
+            self.centroids_sm = gaussian_filter1d(self.centroids, sigma=10)
 
             self.intensities.append(self.y_abs[self.idx_y])
-            self.intensities_sm = gaussian_filter1d(self.intensities, sigma=100)
+            self.intensities_sm = gaussian_filter1d(self.intensities, sigma=10)
 
             self.times = list(range(len(self.centroids)))
 
@@ -583,7 +640,8 @@ class App(ttk.Frame):
 
     def init_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
-        self.center.set_data([self.centroid_x], [self.centroid_y])
+        if self.centroid_x:
+            self.center.set_data([self.centroid_x], [self.centroid_y])
         self.ax2.relim()
         self.ax2.autoscale_view()
         self.canvas2.draw()
@@ -591,7 +649,8 @@ class App(ttk.Frame):
 
     def update_plot2(self):
         self.absorb.set_data(self.x_ab, self.y_abs)
-        self.center.set_data([self.centroid_x], [self.centroid_y])
+        if self.centroid_x:
+            self.center.set_data([self.centroid_x], [self.centroid_y])
         self.canvas2.draw()
 
     def update_plot3(self):
@@ -607,11 +666,10 @@ class App(ttk.Frame):
         self.canvas4.draw()
 
     def update_plot5(self):
-        if self.fix_minimum == False:
-            self.lowest.set_data(self.times, self.mins)
-            self.ax5.relim()
-            self.ax5.autoscale_view()
-            self.canvas5.draw()
+        self.lowest.set_data(self.times, self.mins)
+        self.ax5.relim()
+        self.ax5.autoscale_view()
+        self.canvas5.draw()
 
     def stop_absorb(self):
         self.ts_running = False
@@ -627,7 +685,6 @@ class App(ttk.Frame):
         self.centroid_label.config(text=f"{self.centroid_x:.3f}")
 
         self.centroids.append(self.centroid_x)
-        self.centroids_sm = gaussian_filter1d(self.centroids, sigma=100)
         x_time = range(len(self.centroids))
         self.timeseries.set_data(x_time, self.centroids)
         self.ax3.relim()
@@ -667,8 +724,14 @@ class App(ttk.Frame):
         polygon = Polygon(boundary)
         return polygon.centroid.x, polygon.centroid.y
 
-    def save_all_data(self):
-        result_file = make_results_file(self.results_folder)
+    def save_data(self):
+        ininame = make_results_file()
+        file_path = filedialog.asksaveasfile(
+            initialfile=ininame, defaultextension=".xlsx"
+        )
+        self.save_to_excel(file_path.name)
+
+    def save_to_excel(self, file_path):
 
         df1 = pd.DataFrame(
             {
@@ -692,12 +755,26 @@ class App(ttk.Frame):
 
         df5 = pd.DataFrame({"Minimal": self.mins})
 
-        with pd.ExcelWriter(path=result_file) as writer:
+        df6 = pd.DataFrame(
+            {
+                "积分时间(ms)": self.int_time,
+                "采样时间(ms)": self.sample_time,
+                "暗光谱": self.dark_file,
+                "参考光谱": self.bright_file,
+                "质心范围(+/-)": self.diff,
+                "强度位置": self.position,
+                "固定最低点": self.x_ab[self.min_idx_display],
+                "数据文件路径": file_path,
+            }.items()
+        )
+
+        with pd.ExcelWriter(path=file_path) as writer:
             df1.to_excel(writer, sheet_name="光谱", index=False)
             df2.to_excel(writer, sheet_name="吸收", index=False)
             df3.to_excel(writer, sheet_name="时序", index=False)
             df4.to_excel(writer, sheet_name="强度", index=False)
             df5.to_excel(writer, sheet_name="最低点", index=False)
+            df6.to_excel(writer, sheet_name="参数", index=False)
 
     def on_scroll(self, event):
         ax = event.inaxes
@@ -738,12 +815,6 @@ class App(ttk.Frame):
                     ydata + (ylim[1] - ydata) * scale_factor,
                 ]
             )
-
-
-def resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller"""
-    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
 
 
 if __name__ == "__main__":

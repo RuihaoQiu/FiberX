@@ -33,8 +33,13 @@ def save_bright_file(x, y, folder):
     save_file(x, y, file_path=path)
 
 
-def make_results_file(folder):
+def make_results_file():
     timestr = time.strftime("%y%m%d-%H%M%S")
     filename = "result-" + timestr + ".xlsx"
+    return filename
+
+
+def make_results_path(folder):
+    filename = make_reults_file()
     path = os.path.join(folder, filename)
     return path

@@ -1,14 +1,21 @@
 from ctypes import *
 import numpy as np
+import sys
+import os
 
-source_path = r"C:\Users\ruihq\Desktop\ProfZ\sdk4.1\[4] USB Dome\[3] python demo for windows\SeaBreeze.dll"
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 
 class SignalGenerator:
     def __init__(self, int_time: int = 100):
         self.index = 0
-        self.n_length = 4048
+        self.n_length = 4096
         self.int_time = int_time
+        source_path = ".\SeaBreeze.dll"
         self.lib = cdll.LoadLibrary(source_path)
         self.devcount = self.lib.seabreeze_open_all_spectrometers(0)
         self.wavelength = (c_double * self.n_length)()
