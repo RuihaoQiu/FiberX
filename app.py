@@ -215,6 +215,8 @@ class App(ttk.Frame):
             self.running = True
 
     def stop_real(self):
+        self.signal_generator.close_spectrometers()
+        self.init_absorb = False
         self.running = False
 
     def save_dark(self):
@@ -310,8 +312,16 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
-        label = ttk.Label(real_frame, text="最低点:")
-        label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        fix_button = ttk.Checkbutton(
+            real_frame,
+            text="最低点",
+            style="Switch.TCheckbutton",
+            command=self.fix_min,
+        )
+
+        fix_button.grid(
+            row=1, column=0, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
+        )
 
         self.min_label = ttk.Label(real_frame, text="", font=("Arial", 18))
         self.min_label.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
@@ -364,14 +374,14 @@ class App(ttk.Frame):
             row=2, column=1, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
         )
 
-        confirm_button = ttk.Button(
+        clean_button = ttk.Button(
             control_frame,
-            text="固定最低点",
-            command=self.fix_min,
+            text="清除时序",
+            command=self.clean_plots,
             style="Accent.TButton",
         )
-        confirm_button.grid(
-            row=3, column=0, padx=10, pady=(0, 10), columnspan=1, sticky="ew"
+        clean_button.grid(
+            row=3, column=0, padx=10, pady=(10, 10), columnspan=1, sticky="ew"
         )
 
         save_button = ttk.Button(
@@ -391,6 +401,15 @@ class App(ttk.Frame):
         closest_x = self.find_interval(self.x, self.position)
         self.idx_y = list(self.x).index(closest_x)
         self.update_plots()
+
+    def clean_plots(self):
+        self.times, self.centroids, self.intensities, self.mins = [], [], [], []
+        self.timeseries.set_data([], [])
+        self.canvas3.draw()
+        self.intensity.set_data([], [])
+        self.canvas4.draw()
+        self.lowest.set_data([], [])
+        self.canvas5.draw()
 
     def build_plot_block(self):
         self.paned = ttk.PanedWindow(self)
@@ -675,21 +694,7 @@ class App(ttk.Frame):
         self.ts_running = False
 
     def fix_min(self):
-        self.fix_minimum = True
-
-    def update_centroid(self):
-        self.diff = int(self.diff_entry.get())
-        self.centroid_x, self.centroid_y = self.find_centroid(
-            x=self.x_ab, y=self.y_abs, min_idx=self.min_idx, diff=self.diff
-        )
-        self.centroid_label.config(text=f"{self.centroid_x:.3f}")
-
-        self.centroids.append(self.centroid_x)
-        x_time = range(len(self.centroids))
-        self.timeseries.set_data(x_time, self.centroids)
-        self.ax3.relim()
-        self.ax3.autoscale_view()
-        self.canvas3.draw()
+        self.fix_minimum = not self.fix_minimum
 
     @staticmethod
     def find_minimum(y):

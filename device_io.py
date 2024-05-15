@@ -3,6 +3,8 @@ import numpy as np
 import sys
 import os
 
+import time
+
 
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -18,6 +20,7 @@ class SignalGenerator:
         source_path = ".\SeaBreeze.dll"
         self.lib = cdll.LoadLibrary(source_path)
         self.devcount = self.lib.seabreeze_open_all_spectrometers(0)
+        self.lib.seabreeze_set_laser_power(0, 0, 500)
         self.wavelength = (c_double * self.n_length)()
         self.lightspec = (c_double * self.n_length)()
 
@@ -35,14 +38,14 @@ class SignalGenerator:
                 self.index, 0, self.wavelength, self.n_length
             )
             self.lib.seabreeze_set_laser_power(self.index, 0, 0)
-            self.x = np.array(self.wavelength)
 
-    def stop_laser(self):
-        # 关闭激光器
-        self.lib.seabreeze_set_laser_switch(self.index, 0, 0)
+    def close_spectrometers(self):
+        # 关闭光谱仪
+        # self.lib.seabreeze_set_laser_switch(self.index, 0, 0)
+        self.lib.seabreeze_close_all_spectrometers(0)
 
     def generate_x(self):
-        return self.x
+        return np.array(self.wavelength)
 
     def generate_y(self):
         self.lib.seabreeze_get_formatted_spectrum(
@@ -52,20 +55,24 @@ class SignalGenerator:
 
 
 if __name__ == "__main__":
-    sg = SignalGenerator()
+    sg = SignalGenerator(int_time=100)
+    sg.start()
+    current = time.time()
+    x = sg.generate_x()
+    y = sg.generate_y()
+    print(x[:5], y[:5], time.time() - current)
+    x = sg.generate_x()
+    y = sg.generate_y()
+    print(x[:5], y[:5], time.time() - current)
+    sg.close_spectrometers()
+    sg = SignalGenerator(int_time=1000)
     sg.start()
     x = sg.generate_x()
     y = sg.generate_y()
-    print(x[:5], y[:5])
+    print(x[:5], y[:5], time.time() - current)
     x = sg.generate_x()
     y = sg.generate_y()
-    print(x[:5], y[:5])
+    print(x[:5], y[:5], time.time() - current)
     x = sg.generate_x()
     y = sg.generate_y()
-    print(x[:5], y[:5])
-    x = sg.generate_x()
-    y = sg.generate_y()
-    print(x[:5], y[:5])
-    x = sg.generate_x()
-    y = sg.generate_y()
-    print(x[:5], y[:5])
+    print(x[:5], y[:5], time.time() - current)
