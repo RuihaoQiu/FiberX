@@ -17,10 +17,10 @@ from scipy.ndimage import gaussian_filter1d
 from device_io import SignalGenerator, resource_path
 from file_io import (
     load_file,
-    save_dark_file,
-    save_bright_file,
+    make_dark_file,
+    make_bright_file,
+    save_file,
     make_results_file,
-    make_results_path,
 )
 
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -100,7 +100,7 @@ class App(ttk.Frame):
         self.build_plot_block()
 
     def build_input_block(self):
-        input_frame = ttk.LabelFrame(self, text="设置", padding=(20, 10))
+        input_frame = ttk.LabelFrame(self, text="设置", padding=(20, 10), height=200)
         input_frame.grid(
             row=0,
             column=0,
@@ -220,15 +220,23 @@ class App(ttk.Frame):
         self.running = False
 
     def save_dark(self):
-        save_dark_file(self.x, self.y, self.dark_folder)
+        ininame = make_dark_file()
+        file_path = filedialog.asksaveasfile(
+            initialfile=ininame, defaultextension=".csv"
+        )
+        save_file(self.x, self.y, file_path)
         self.build_dark_block()
 
     def save_bright(self):
-        save_bright_file(self.x, self.y, self.bright_folder)
+        ininame = make_bright_file()
+        file_path = filedialog.asksaveasfile(
+            initialfile=ininame, defaultextension=".csv"
+        )
+        save_file(self.x, self.y, file_path)
         self.build_bright_block()
 
     def build_dark_block(self):
-        dark_frame = ttk.LabelFrame(self, text="暗光谱", padding=(20, 10))
+        dark_frame = ttk.LabelFrame(self, text="暗光谱", padding=(20, 10), height=400)
         dark_frame.grid(
             row=1,
             column=0,
@@ -237,12 +245,35 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
+        self.dark_canvas = tk.Canvas(dark_frame, width=100, height=180)
+        scrollbar = ttk.Scrollbar(
+            dark_frame, orient="vertical", command=self.dark_canvas.yview
+        )
+
+        scrollable_frame = ttk.Frame(self.dark_canvas)
+        scrollable_frame.pack(fill="both")
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.dark_canvas.configure(
+                scrollregion=self.dark_canvas.bbox("all")
+            ),
+        )
+
+        self.dark_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.dark_canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.dark_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        dark_frame.bind("<Enter>", self.bind_mousewheel_dark)
+        dark_frame.bind("<Leave>", self.unbind_mousewheel_dark)
+
         var = tk.StringVar()
         if self.dark_folder:
             filenames = os.listdir(self.dark_folder)[::-1]
-            for file in filenames[:4]:
+            for file in filenames:
                 b = ttk.Checkbutton(
-                    dark_frame,
+                    scrollable_frame,
                     text=file,
                     variable=var,
                     onvalue=file,
@@ -250,8 +281,27 @@ class App(ttk.Frame):
                 )
                 b.pack(anchor=tk.W)
         else:
-            label = ttk.Label(dark_frame, text="请选择数据文件。")
-            label.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="ew")
+            label = ttk.Label(scrollable_frame, text="请选择数据文件。")
+            label.pack(anchor=tk.W)
+
+    def bind_mousewheel_dark(self, event):
+        """Bind the mousewheel scroll to the canvas"""
+        self.dark_canvas.bind_all("<MouseWheel>", self.on_mousewheel_dark)
+
+    def unbind_mousewheel_dark(self, event):
+        """Bind the mousewheel scroll to the canvas"""
+        self.dark_canvas.unbind_all("<MouseWheel>")
+
+    def on_mousewheel_dark(self, event):
+        """Mouse wheel handler"""
+        if event.num == 4:  # Linux wheel up
+            delta = -1
+        elif event.num == 5:  # Linux wheel down
+            delta = 1
+        else:
+            delta = -1 * event.delta // 120  # Convert from MS units to common value
+
+        self.dark_canvas.yview_scroll(delta, "units")
 
     def load_dark(self, file_path):
         self.dark_file = os.path.join(self.dark_folder, file_path.get())
@@ -267,8 +317,10 @@ class App(ttk.Frame):
             self.canvas1.draw()
 
     def build_bright_block(self):
-        ref_frame = ttk.LabelFrame(self, text="参考光谱", padding=(20, 10))
-        ref_frame.grid(
+        bright_frame = ttk.LabelFrame(
+            self, text="参考光谱", padding=(20, 10), height=400
+        )
+        bright_frame.grid(
             row=2,
             column=0,
             padx=(10, 10),
@@ -276,18 +328,65 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
+        self.bright_canvas = tk.Canvas(bright_frame, width=100, height=180)
+        scrollbar = ttk.Scrollbar(
+            bright_frame, orient="vertical", command=self.bright_canvas.yview
+        )
+
+        scrollable_frame = ttk.Frame(self.bright_canvas)
+        scrollable_frame.pack(fill="both")
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.bright_canvas.configure(
+                scrollregion=self.bright_canvas.bbox("all")
+            ),
+        )
+
+        self.bright_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.bright_canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.bright_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        bright_frame.bind("<Enter>", self.bind_mousewheel_bright)
+        bright_frame.bind("<Leave>", self.unbind_mousewheel_bright)
+
         var = tk.StringVar()
         if self.bright_folder:
             filenames = os.listdir(self.bright_folder)[::-1]
-            for file in filenames[:4]:
+            for file in filenames:
                 b = ttk.Checkbutton(
-                    ref_frame,
+                    scrollable_frame,
                     text=file,
                     variable=var,
                     onvalue=file,
                     command=lambda var=var: self.load_bright(var),
                 )
                 b.pack(anchor=tk.W)
+        else:
+            label = ttk.Label(scrollable_frame, text="请选择数据文件。")
+            label.pack(anchor=tk.W)
+
+        scrollable_frame.bind("<Enter>", self.bind_mousewheel_bright)
+
+    def bind_mousewheel_bright(self, event):
+        """Bind the mousewheel scroll to the canvas"""
+        self.bright_canvas.bind_all("<MouseWheel>", self.on_mousewheel_bright)
+
+    def unbind_mousewheel_bright(self, event):
+        """Bind the mousewheel scroll to the canvas"""
+        self.bright_canvas.unbind_all("<MouseWheel>")
+
+    def on_mousewheel_bright(self, event):
+        """Mouse wheel handler"""
+        if event.num == 4:  # Linux wheel up
+            delta = -1
+        elif event.num == 5:  # Linux wheel down
+            delta = 1
+        else:
+            delta = -1 * event.delta // 120  # Convert from MS units to common value
+
+        self.bright_canvas.yview_scroll(delta, "units")
 
     def load_bright(self, file_path):
         self.bright_file = os.path.join(self.bright_folder, file_path.get())

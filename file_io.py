@@ -3,14 +3,9 @@ import time
 import os
 
 
-dark_folder = "../data/dark/"
-bright_folder = "../data/bright/"
-results_folder = "../data/results/"
-
-
 def save_file(x, y, file_path):
     df = pd.DataFrame({"wavelength": x, "intensity": y})
-    df.to_csv(file_path)
+    df.to_csv(file_path, lineterminator="\n")
 
 
 def load_file(file_path):
@@ -19,16 +14,26 @@ def load_file(file_path):
     return x, y
 
 
-def save_dark_file(x, y, folder):
+def make_dark_file():
     timestr = time.strftime("%y%m%d-%H%M%S")
     filename = "dark-" + timestr + ".csv"
+    return filename
+
+
+def save_dark_file(x, y, folder):
+    filename = make_dark_file()
     path = os.path.join(folder, filename)
     save_file(x, y, file_path=path)
 
 
-def save_bright_file(x, y, folder):
+def make_bright_file():
     timestr = time.strftime("%y%m%d-%H%M%S")
     filename = "bright-" + timestr + ".csv"
+    return filename
+
+
+def save_bright_file(x, y, folder):
+    filename = make_bright_file()
     path = os.path.join(folder, filename)
     save_file(x, y, file_path=path)
 
@@ -40,6 +45,6 @@ def make_results_file():
 
 
 def make_results_path(folder):
-    filename = make_reults_file()
+    filename = make_results_file()
     path = os.path.join(folder, filename)
     return path
