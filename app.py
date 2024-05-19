@@ -56,6 +56,7 @@ class App(ttk.Frame):
         self.mins = []
         self.centroids = []
         self.centroids_sm = []
+        self.area_ratios = []
 
         self.init_absorb = False
         self.init_plots = False
@@ -397,6 +398,7 @@ class App(ttk.Frame):
             self.ax1.relim()
             self.ax1.autoscale_view()
             self.canvas1.draw()
+            self.area_ref = np.dot(self.x_ref, self.y_ref)
         except FileNotFoundError:
             self.reference.set_data([], [])
             self.canvas1.draw()
@@ -529,6 +531,7 @@ class App(ttk.Frame):
         self.build_tab3()
         self.build_tab4()
         self.build_tab5()
+        self.build_tab6()
 
     def build_tab1(self):
         tab1 = ttk.Frame(self.notebook)
@@ -687,6 +690,37 @@ class App(ttk.Frame):
 
         (self.lowest,) = self.ax5.plot([], [], "-")
 
+    def build_tab6(self):
+        tab6 = ttk.Frame(self.notebook)
+        self.notebook.add(tab6, text="波长x强度")
+
+        plot_frame = ttk.Frame(tab6)
+        plot_frame.grid(
+            row=0,
+            column=0,
+            padx=(0, 10),
+            pady=(0, 10),
+            sticky="ew",
+            rowspan=3,
+            columnspan=3,
+        )
+
+        fig6, self.ax6 = plt.subplots()
+        self.ax6.set_xlabel("Time")
+        self.ax6.set_ylabel("Ratio")
+
+        self.canvas6 = FigureCanvasTkAgg(fig6, master=plot_frame)
+        self.canvas6.draw()
+        self.canvas6.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        toolbar = NavigationToolbar2Tk(self.canvas4, plot_frame, pack_toolbar=False)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.canvas6.mpl_connect("scroll_event", self.on_scroll)
+
+        (self.area_plot,) = self.ax6.plot([], [], "-")
+
     def _make_absorb(self):
         i = random.randint(0, 9)
         self.x_ab = self.df["Wavelength"].values
@@ -736,6 +770,9 @@ class App(ttk.Frame):
             self.intensities.append(self.y_abs[self.idx_y])
             self.intensities_sm = gaussian_filter1d(self.intensities, sigma=10)
 
+            area_current = np.dot(self.x, self.y)
+            self.area_ratios.append(area_current / self.area_ref * 100)
+
             self.times = list(range(len(self.centroids)))
 
             self.update_center_value()
@@ -746,6 +783,7 @@ class App(ttk.Frame):
                 self.update_plot3()
                 self.update_plot4()
                 self.update_plot5()
+                self.update_plot6()
             self.after(self.sample_time, self.update_plots)
         else:
             self.ts_running = True
@@ -788,6 +826,12 @@ class App(ttk.Frame):
         self.ax5.relim()
         self.ax5.autoscale_view()
         self.canvas5.draw()
+
+    def update_plot6(self):
+        self.area_plot.set_data(self.times, self.area_ratios)
+        self.ax6.relim()
+        self.ax6.autoscale_view()
+        self.canvas6.draw()
 
     def stop_absorb(self):
         self.ts_running = False
@@ -859,7 +903,9 @@ class App(ttk.Frame):
 
         df5 = pd.DataFrame({"Minimal": self.mins})
 
-        df6 = pd.DataFrame(
+        df6 = pd.DataFrame({"Ratio of area": self.area_ratios})
+
+        df7 = pd.DataFrame(
             {
                 "积分时间(ms)": self.int_time,
                 "采样时间(ms)": self.sample_time,
@@ -878,7 +924,8 @@ class App(ttk.Frame):
             df3.to_excel(writer, sheet_name="时序", index=False)
             df4.to_excel(writer, sheet_name="强度", index=False)
             df5.to_excel(writer, sheet_name="最低点", index=False)
-            df6.to_excel(writer, sheet_name="参数", index=False)
+            df6.to_excel(writer, sheet_name="面积比", index=False)
+            df7.to_excel(writer, sheet_name="参数", index=False)
 
     def on_scroll(self, event):
         ax = event.inaxes
