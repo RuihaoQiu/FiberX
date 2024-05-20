@@ -1,101 +1,63 @@
 import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import ttk
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
-import pandas as pd
-import random
-from ctypes import *
-
-error_code = 0
-lib = cdll.LoadLibrary(
-    r"C:\Users\ruihq\Desktop\ProfZ\sdk4.1\[4] USB Dome\[3] python demo for windows\SeaBreeze.dll"
-)
-
-# 打开所有光谱仪
-devcount = lib.seabreeze_open_all_spectrometers(error_code)
 
 
-class RealTimePlotApp:
-    def __init__(self, root):
-        self.root = root
-        # self.root.title("Real-Time Plot")
+class PlotApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Resizable Plot")
 
-        # plt.style.use("ggplot")
+        # Create a frame for the plot
+        self.plot_frame = ttk.Frame(self)
+        self.plot_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.figure, self.ax = plt.subplots()
-        # Set x and y labels
-        self.ax.set_xlabel("Wavelength")
-        self.ax.set_ylabel("Ration")
+        # Create a figure and axes for the plot
+        self.fig, self.ax = plt.subplots()
+        self.plot_canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
+        self.plot_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # plt.subplots_adjust(
-        #     top=0.925, bottom=0.16, left=0.11, right=0.90, hspace=0.2, wspace=0.2
-        # )
+        # Initialize data
+        self.x = np.linspace(0, 10, 100)
+        self.y = np.sin(self.x)
 
-        self.canvas = FigureCanvasTkAgg(self.figure, master=root)
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        # Plot initial data
+        self.plot_data()
 
-        if devcount == 0:
-            print("请打开光谱仪。")
+        # Bind the <Configure> event to a callback function
+        self.bind("<Configure>", self.on_window_resize)
 
-        if devcount > 0:
-            self.index = 0
-            self.wavelengths = (c_double * 2048)()
-            self.lightspec = (c_double * 2048)()
+    def plot_data(self):
+        self.ax.clear()
+        self.ax.plot(self.x, self.y)
+        self.plot_canvas.draw()
 
-            # 设置积分时间
-            lib.seabreeze_set_integration_time_microsec(
-                self.index, error_code, 1000 * 1000
-            )
+    def on_window_resize(self, event):
+        # Get the new size of the window
+        width = self.winfo_width()
+        height = self.winfo_height()
+        print(width, height)
 
-            # 获取波长
-            lib.seabreeze_get_wavelengths(
-                self.index, error_code, self.wavelengths, 2048
-            )
-            self.x_data = list(self.wavelengths)
+        # Update the plot size
+        self.fig.set_size_inches(
+            width / self.plot_canvas.figure.dpi, height / self.plot_canvas.figure.dpi
+        )
 
-            lib.seabreeze_set_laser_power(self.index, error_code, 0)
+        # Update the font size
+        font_size = min(width, height) // 50
+        for item in (
+            [self.ax.title, self.ax.xaxis.label, self.ax.yaxis.label]
+            + self.ax.get_xticklabels()
+            + self.ax.get_yticklabels()
+        ):
+            item.set_fontsize(font_size)
 
-        (self.dot_line,) = self.ax.plot(
-            [], [], "-", label="Raw Data"
-        )  # Dot-line for raw data with custom color
-
-        self.running = False
-
-        # Create start button
-        self.start_button = tk.Button(root, text="Start", command=self.start_plot)
-        self.start_button.pack(side=tk.LEFT)
-
-        # Create stop button
-        self.stop_button = tk.Button(root, text="Stop", command=self.stop_plot)
-        self.stop_button.pack(side=tk.LEFT)
-
-    def update_plot(self):
-        if self.running:
-            lib.seabreeze_get_formatted_spectrum(
-                self.index, error_code, self.lightspec, 2048
-            )
-            y = list(self.lightspec)
-
-            self.dot_line.set_data(self.x_data, y)
-            self.ax.relim()
-            self.ax.autoscale_view()
-            self.canvas.draw()
-            self.root.after(1000, self.update_plot)
-
-    def start_plot(self):
-        if not self.running:
-            self.running = True
-            self.update_plot()
-
-    def stop_plot(self):
-        self.running = False
-
-
-def main():
-    root = tk.Tk()
-    app = RealTimePlotApp(root)
-    root.mainloop()
+        # Redraw the plot
+        self.plot_canvas.draw()
 
 
 if __name__ == "__main__":
-    main()
+    app = PlotApp()
+    app.mainloop()
