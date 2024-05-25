@@ -29,10 +29,11 @@ ctypes.windll.kernel32.SetDllDirectoryW(None)
 plt.style.use("seaborn-v0_8-whitegrid")
 plt.rcParams.update(
     {
-        "figure.figsize": (13, 9),
+        "figure.figsize": (14.8, 8.8),
         "figure.autolayout": True,
         "lines.linewidth": 3.0,
         "lines.markersize": 10.0,
+        "font.size": 14,
     }
 )
 
@@ -46,6 +47,7 @@ class App(ttk.Frame):
         self.sample_time = 1000
         self.diff = 25
         self.ini_position = 700
+        self.scale_factor_x = 50
         self.position = None
         self.min_idx = None
         self.min_idx_display = None
@@ -68,6 +70,8 @@ class App(ttk.Frame):
         self.y_refs = []
         self.y_darks = []
 
+        self.y_s = []
+
         self.x_ab = []
         self.y_abs = []
 
@@ -86,7 +90,7 @@ class App(ttk.Frame):
 
         # self.df = pd.read_csv("../time_samples.csv")
 
-        for index in [0, 1, 2, 3, 4]:
+        for index in [0, 1]:
             self.columnconfigure(index=index, weight=1)
             self.rowconfigure(index=index, weight=1)
 
@@ -122,21 +126,15 @@ class App(ttk.Frame):
         self.sample_entry.insert(0, self.sample_time)
         self.sample_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
 
-        select_button = ttk.Button(
-            input_frame,
-            text="选择路径",
-            command=self.select_folder,
-            style="Accent.TButton",
-        )
-        select_button.grid(row=2, column=0, padx=10, pady=5, columnspan=2, sticky="ew")
-
         start_button = ttk.Button(
             input_frame,
             text="开始",
             command=self.start_real,
             style="Accent.TButton",
         )
-        start_button.grid(row=3, column=0, padx=10, pady=5, columnspan=1, sticky="ew")
+        start_button.grid(
+            row=2, column=0, padx=(10, 5), pady=5, columnspan=1, sticky="ew"
+        )
 
         stop_button = ttk.Button(
             input_frame,
@@ -144,34 +142,16 @@ class App(ttk.Frame):
             command=self.stop_real,
             style="Accent.TButton",
         )
-        stop_button.grid(row=3, column=1, padx=10, pady=5, columnspan=1, sticky="ew")
-
-        save_dark_button = ttk.Button(
-            input_frame,
-            text="保存暗光谱",
-            command=self.save_dark,
-            style="Accent.TButton",
-        )
-        save_dark_button.grid(
-            row=4, column=0, padx=10, pady=5, columnspan=1, sticky="ew"
+        stop_button.grid(
+            row=2, column=1, padx=(5, 15), pady=5, columnspan=1, sticky="ew"
         )
 
-        save_bright_button = ttk.Button(
-            input_frame,
-            text="保存亮光谱",
-            command=self.save_bright,
-            style="Accent.TButton",
-        )
-        save_bright_button.grid(
-            row=4, column=1, padx=10, pady=5, columnspan=1, sticky="ew"
-        )
-
-    def select_folder(self):
-        self.folder_path = filedialog.askdirectory()
-        self.dark_folder = os.path.join(self.folder_path, "dark")
-        self.bright_folder = os.path.join(self.folder_path, "bright")
-        self.results_folder = os.path.join(self.folder_path, "results")
+    def select_dark_folder(self):
+        self.dark_folder = filedialog.askdirectory()
         self.build_dark_block()
+
+    def select_bright_folder(self):
+        self.bright_folder = filedialog.askdirectory()
         self.build_bright_block()
 
     def init_real(self):
@@ -181,7 +161,7 @@ class App(ttk.Frame):
         self.x = self.signal_generator.generate_x()
         self.y = self.signal_generator.generate_y()
         self.y_s = gaussian_filter1d(self.y, sigma=100)
-        self.realtime.set_data(self.x, self.y_s)
+        self.plot1_real.set_data(self.x, self.y_s)
         self.ax1.relim()
         self.ax1.autoscale_view()
         self.init_absorb = True
@@ -199,7 +179,7 @@ class App(ttk.Frame):
             self.x = self.signal_generator.generate_x()
             self.y = self.signal_generator.generate_y()
             self.y_s = gaussian_filter1d(self.y, sigma=100)
-            self.realtime.set_data(self.x, self.y_s)
+            self.plot1_real.set_data(self.x, self.y_s)
             self.canvas1.mpl_connect("scroll_event", self.on_scroll)
             self.canvas1.draw()
             self.update_ratio()
@@ -244,7 +224,7 @@ class App(ttk.Frame):
         )
 
         scrollable_frame = ttk.Frame(self.dark_canvas)
-        scrollable_frame.pack(fill="both")
+        scrollable_frame.pack(fill=tk.BOTH)
         scrollable_frame.bind(
             "<Configure>",
             lambda e: self.dark_canvas.configure(
@@ -261,6 +241,29 @@ class App(ttk.Frame):
         dark_frame.bind("<Enter>", self.bind_mousewheel_dark)
         dark_frame.bind("<Leave>", self.unbind_mousewheel_dark)
 
+        buttons_frame = ttk.Frame(scrollable_frame)
+        buttons_frame.pack(fill=tk.BOTH)
+
+        select_button = ttk.Button(
+            buttons_frame,
+            text="选择路径",
+            command=self.select_dark_folder,
+            style="Accent.TButton",
+        )
+        select_button.pack(
+            side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=(10, 5), pady=5
+        )
+
+        save_dark_button = ttk.Button(
+            buttons_frame,
+            text="保存暗光谱",
+            command=self.save_dark,
+            style="Accent.TButton",
+        )
+        save_dark_button.pack(
+            side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=(5, 15), pady=5
+        )
+
         var = tk.StringVar()
         if self.dark_folder:
             filenames = os.listdir(self.dark_folder)[::-1]
@@ -272,10 +275,10 @@ class App(ttk.Frame):
                     onvalue=file,
                     command=lambda var=var: self.load_dark(var),
                 )
-                b.pack(anchor=tk.W)
+                b.pack(anchor=tk.W, padx=10)
         else:
-            label = ttk.Label(scrollable_frame, text="请选择数据文件。")
-            label.pack(anchor=tk.W)
+            label = ttk.Label(scrollable_frame, text="请选择暗光谱文件夹。")
+            label.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=10)
 
     def bind_mousewheel_dark(self, event):
         """Bind the mousewheel scroll to the canvas"""
@@ -301,12 +304,13 @@ class App(ttk.Frame):
         try:
             self.x_dark, self.y_dark = load_file(self.dark_file)
             self.y_darks = gaussian_filter1d(self.y_dark, sigma=100)
-            self.dark.set_data(self.x_dark, self.y_darks)
+            self.plot1_dark.set_data(self.x_dark, self.y_darks)
             self.ax1.relim()
             self.ax1.autoscale_view()
             self.canvas1.draw()
         except FileNotFoundError:
-            self.dark.set_data([], [])
+            self.y_darks = []
+            self.plot1_dark.set_data([], [])
             self.canvas1.draw()
 
     def build_bright_block(self):
@@ -344,6 +348,27 @@ class App(ttk.Frame):
         bright_frame.bind("<Enter>", self.bind_mousewheel_bright)
         bright_frame.bind("<Leave>", self.unbind_mousewheel_bright)
 
+        buttons_frame = ttk.Frame(scrollable_frame)
+        buttons_frame.pack(fill="both")
+
+        select_button = ttk.Button(
+            buttons_frame,
+            text="选择路径",
+            command=self.select_bright_folder,
+            style="Accent.TButton",
+        )
+        select_button.pack(
+            side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=(10, 5), pady=5
+        )
+
+        save_bright_button = ttk.Button(
+            buttons_frame,
+            text="保存亮光谱",
+            command=self.save_bright,
+            style="Accent.TButton",
+        )
+        save_bright_button.pack(side=tk.LEFT, fill=tk.BOTH, padx=(5, 15), pady=5)
+
         var = tk.StringVar()
         if self.bright_folder:
             filenames = os.listdir(self.bright_folder)[::-1]
@@ -355,10 +380,10 @@ class App(ttk.Frame):
                     onvalue=file,
                     command=lambda var=var: self.load_bright(var),
                 )
-                b.pack(anchor=tk.W)
+                b.pack(fill=tk.BOTH, padx=10)
         else:
-            label = ttk.Label(scrollable_frame, text="请选择数据文件。")
-            label.pack(anchor=tk.W)
+            label = ttk.Label(scrollable_frame, text="请选择亮光谱文件夹。")
+            label.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=10)
 
         scrollable_frame.bind("<Enter>", self.bind_mousewheel_bright)
 
@@ -386,13 +411,14 @@ class App(ttk.Frame):
         try:
             self.x_ref, self.y_ref = load_file(self.bright_file)
             self.y_refs = gaussian_filter1d(self.y_ref, sigma=100)
-            self.reference.set_data(self.x_ref, self.y_refs)
+            self.plot1_ref.set_data(self.x_ref, self.y_refs)
             self.ax1.relim()
             self.ax1.autoscale_view()
             self.canvas1.draw()
             self.area_ref = np.dot(self.x_ref, self.y_ref)
         except FileNotFoundError:
-            self.reference.set_data([], [])
+            self.y_refs = []
+            self.plot1_ref.set_data([], [])
             self.canvas1.draw()
 
     def build_display_block(self):
@@ -489,19 +515,21 @@ class App(ttk.Frame):
 
     def clean_plots(self):
         self.times, self.centroids, self.intensities, self.mins = [], [], [], []
-        self.timeseries.set_data([], [])
+        self.plot3_time.set_data([], [])
         self.canvas3.draw()
-        self.intensity.set_data([], [])
+        self.plot4_intensity.set_data([], [])
         self.canvas4.draw()
-        self.lowest.set_data([], [])
+        self.plot5_lowest.set_data([], [])
         self.canvas5.draw()
+        self.plot6_area.set_data([], [])
+        self.canvas6.draw()
 
     def build_plot_block(self):
         self.paned = ttk.PanedWindow(self)
         self.paned.grid(
             row=0,
             column=1,
-            padx=(25, 25),
+            padx=(20, 20),
             pady=5,
             sticky="nsew",
             rowspan=6,
@@ -525,8 +553,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(0, 10),
-            pady=(0, 10),
+            padx=20,
+            pady=20,
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -535,19 +563,28 @@ class App(ttk.Frame):
         fig1, self.ax1 = plt.subplots()
         self.ax1.set_xlabel("Wavelength")
         self.ax1.set_ylabel("Intensity")
+        (self.plot1_real,) = self.ax1.plot([], [], "-", label="Real time")
+        (self.plot1_ref,) = self.ax1.plot([], [], "-", label="Reference")
+        (self.plot1_dark,) = self.ax1.plot([], [], "-", label="Dark")
+        self.ax1.legend()
 
         self.canvas1 = FigureCanvasTkAgg(fig1, master=plot_frame)
         self.canvas1.draw()
         self.canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        toolbar = NavigationToolbar2Tk(self.canvas1, plot_frame, pack_toolbar=False)
+        self.canvas1.mpl_connect("scroll_event", self.on_scroll)
+
+        auto_button = ttk.Button(
+            tab1,
+            text="自适应",
+            command=self.auto_rescale1,
+            style="Accent.TButton",
+            width=10,
+        )
+        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+
+        toolbar = NavigationToolbar2Tk(self.canvas1, tab1, pack_toolbar=False)
         toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        (self.realtime,) = self.ax1.plot([], [], "-", label="Real time")
-        (self.reference,) = self.ax1.plot([], [], "-", label="Reference")
-        (self.dark,) = self.ax1.plot([], [], "-", label="Dark")
-
-        self.ax1.legend()
+        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
 
     def build_tab2(self):
         tab2 = ttk.Frame(self.notebook)
@@ -557,8 +594,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(0, 10),
-            pady=(0, 10),
+            padx=20,
+            pady=20,
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -567,19 +604,26 @@ class App(ttk.Frame):
         fig2, self.ax2 = plt.subplots()
         self.ax2.set_xlabel("Wavelength")
         self.ax2.set_ylabel("Ratio")
+        (self.plot2_absorb,) = self.ax2.plot([], [], "-", label="Real time")
+        (self.plot2_center,) = self.ax2.plot([], [], ".", label="Centroid")
 
         self.canvas2 = FigureCanvasTkAgg(fig2, master=plot_frame)
         self.canvas2.draw()
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        toolbar = NavigationToolbar2Tk(self.canvas2, plot_frame, pack_toolbar=False)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-
         self.canvas2.mpl_connect("scroll_event", self.on_scroll)
 
-        (self.absorb,) = self.ax2.plot([], [], "-", label="Real time")
-        (self.center,) = self.ax2.plot([], [], ".", label="Centroid")
+        auto_button = ttk.Button(
+            tab2,
+            text="自适应",
+            command=self.auto_rescale2,
+            style="Accent.TButton",
+            width=10,
+        )
+        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+
+        toolbar = NavigationToolbar2Tk(self.canvas2, tab2, pack_toolbar=False)
+        toolbar.update()
+        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
 
     def build_tab3(self):
         tab3 = ttk.Frame(self.notebook)
@@ -589,8 +633,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(0, 10),
-            pady=(0, 10),
+            padx=20,
+            pady=20,
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -599,18 +643,25 @@ class App(ttk.Frame):
         fig3, self.ax3 = plt.subplots()
         self.ax3.set_xlabel("Time")
         self.ax3.set_ylabel("Wavelength")
+        (self.plot3_time,) = self.ax3.plot([], [], "-")
 
         self.canvas3 = FigureCanvasTkAgg(fig3, master=plot_frame)
         self.canvas3.draw()
         self.canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        toolbar = NavigationToolbar2Tk(self.canvas3, plot_frame, pack_toolbar=False)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-
         self.canvas3.mpl_connect("scroll_event", self.on_scroll)
 
-        (self.timeseries,) = self.ax3.plot([], [], "-")
+        auto_button = ttk.Button(
+            tab3,
+            text="自适应",
+            command=self.auto_rescale3,
+            style="Accent.TButton",
+            width=10,
+        )
+        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+
+        toolbar = NavigationToolbar2Tk(self.canvas3, tab3, pack_toolbar=False)
+        toolbar.update()
+        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
 
     def build_tab4(self):
         tab4 = ttk.Frame(self.notebook)
@@ -620,8 +671,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(0, 10),
-            pady=(0, 10),
+            padx=20,
+            pady=20,
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -630,18 +681,25 @@ class App(ttk.Frame):
         fig4, self.ax4 = plt.subplots()
         self.ax4.set_xlabel("Time")
         self.ax4.set_ylabel("Intensity")
+        (self.plot4_intensity,) = self.ax4.plot([], [], "-")
 
         self.canvas4 = FigureCanvasTkAgg(fig4, master=plot_frame)
         self.canvas4.draw()
         self.canvas4.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        toolbar = NavigationToolbar2Tk(self.canvas4, plot_frame, pack_toolbar=False)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-
         self.canvas4.mpl_connect("scroll_event", self.on_scroll)
 
-        (self.intensity,) = self.ax4.plot([], [], "-")
+        auto_button = ttk.Button(
+            tab4,
+            text="自适应",
+            command=self.auto_rescale4,
+            style="Accent.TButton",
+            width=10,
+        )
+        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+
+        toolbar = NavigationToolbar2Tk(self.canvas4, tab4, pack_toolbar=False)
+        toolbar.update()
+        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
 
     def build_tab5(self):
         tab5 = ttk.Frame(self.notebook)
@@ -651,8 +709,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(0, 10),
-            pady=(0, 10),
+            padx=20,
+            pady=20,
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -661,18 +719,25 @@ class App(ttk.Frame):
         fig5, self.ax5 = plt.subplots()
         self.ax5.set_xlabel("Time")
         self.ax5.set_ylabel("Wavelength")
+        (self.plot5_lowest,) = self.ax5.plot([], [], "-")
 
         self.canvas5 = FigureCanvasTkAgg(fig5, master=plot_frame)
         self.canvas5.draw()
         self.canvas5.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        toolbar = NavigationToolbar2Tk(self.canvas5, plot_frame, pack_toolbar=False)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-
         self.canvas5.mpl_connect("scroll_event", self.on_scroll)
 
-        (self.lowest,) = self.ax5.plot([], [], "-")
+        auto_button = ttk.Button(
+            tab5,
+            text="自适应",
+            command=self.auto_rescale5,
+            style="Accent.TButton",
+            width=10,
+        )
+        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+
+        toolbar = NavigationToolbar2Tk(self.canvas5, tab5, pack_toolbar=False)
+        toolbar.update()
+        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
 
     def build_tab6(self):
         tab6 = ttk.Frame(self.notebook)
@@ -682,8 +747,8 @@ class App(ttk.Frame):
         plot_frame.grid(
             row=0,
             column=0,
-            padx=(0, 10),
-            pady=(0, 10),
+            padx=20,
+            pady=20,
             sticky="ew",
             rowspan=3,
             columnspan=3,
@@ -692,18 +757,82 @@ class App(ttk.Frame):
         fig6, self.ax6 = plt.subplots()
         self.ax6.set_xlabel("Time")
         self.ax6.set_ylabel("Ratio")
+        (self.plot6_area,) = self.ax6.plot([], [], "-")
 
         self.canvas6 = FigureCanvasTkAgg(fig6, master=plot_frame)
         self.canvas6.draw()
         self.canvas6.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        toolbar = NavigationToolbar2Tk(self.canvas4, plot_frame, pack_toolbar=False)
-        toolbar.update()
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-
         self.canvas6.mpl_connect("scroll_event", self.on_scroll)
 
-        (self.area_plot,) = self.ax6.plot([], [], "-")
+        auto_button = ttk.Button(
+            tab6,
+            text="自适应",
+            command=self.auto_rescale6,
+            style="Accent.TButton",
+            width=10,
+        )
+        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+
+        toolbar = NavigationToolbar2Tk(self.canvas6, tab6, pack_toolbar=False)
+        toolbar.update()
+        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
+
+    def auto_rescale1(self):
+        y = list(self.y_s) + list(self.y_darks) + list(self.y_refs)
+        delta = max(y) - min(y)
+        self.ax1.set_ylim(
+            min(y) - 0.1 * delta,
+            max(y) + 0.1 * delta,
+        )
+        self.canvas1.draw()
+
+    def auto_rescale2(self):
+        delta = max(self.y_abs) - min(self.y_abs)
+        self.ax2.set_ylim(
+            min(self.y_abs) - 0.1 * delta,
+            max(self.y_abs) + 0.1 * delta,
+        )
+        self.canvas2.draw()
+
+    def auto_rescale3(self):
+        xmax = (int(self.times[-1] / self.scale_factor_x) + 1) * self.scale_factor_x
+        self.ax3.set_xlim(0, xmax)
+        delta = max(self.centroids) - min(self.centroids)
+        self.ax3.set_ylim(
+            min(self.centroids) - 0.1 * delta,
+            max(self.centroids) + 0.1 * delta,
+        )
+        self.canvas3.draw()
+
+    def auto_rescale4(self):
+        xmax = (int(self.times[-1] / self.scale_factor_x) + 1) * self.scale_factor_x
+        self.ax4.set_xlim(0, xmax)
+        delta = max(self.intensities) - min(self.intensities)
+        self.ax4.set_ylim(
+            min(self.intensities) - 0.1 * delta,
+            max(self.intensities) + 0.1 * delta,
+        )
+        self.canvas4.draw()
+
+    def auto_rescale5(self):
+        xmax = (int(self.times[-1] / self.scale_factor_x) + 1) * self.scale_factor_x
+        self.ax5.set_xlim(0, xmax)
+        delta = max(self.mins) - min(self.mins)
+        self.ax5.set_ylim(
+            min(self.mins) - 0.1 * delta,
+            max(self.mins) + 0.1 * delta,
+        )
+        self.canvas5.draw()
+
+    def auto_rescale6(self):
+        xmax = (int(self.times[-1] / self.scale_factor_x) + 1) * self.scale_factor_x
+        self.ax6.set_xlim(0, xmax)
+        delta = max(self.area_ratios) - min(self.area_ratios)
+        self.ax6.set_ylim(
+            min(self.area_ratios) - 0.1 * delta,
+            max(self.area_ratios) + 0.1 * delta,
+        )
+        self.canvas6.draw()
 
     def _make_absorb(self):
         i = random.randint(0, 9)
@@ -743,8 +872,6 @@ class App(ttk.Frame):
                 self.min_idx_display = self.min_idx
                 self.update_min_value()
 
-            self.mins.append(self.x_ab[self.min_idx])
-
             self.centroid_x, self.centroid_y = self.find_centroid(
                 x=self.x_ab, y=self.y_abs, min_idx=self.min_idx_display, diff=self.diff
             )
@@ -754,20 +881,27 @@ class App(ttk.Frame):
             self.intensities.append(self.y_abs[self.idx_y])
             self.intensities_sm = gaussian_filter1d(self.intensities, sigma=10)
 
+            self.mins.append(self.x_ab[self.min_idx])
+
             area_current = np.dot(self.x, self.y)
             self.area_ratios.append(area_current / self.area_ref * 100)
 
             self.times = list(range(len(self.centroids)))
 
             self.update_center_value()
-            if self.init_plots == False:
+            if not self.init_plots:
                 self.init_plot2()
-            else:
-                self.update_plot2()
-                self.update_plot3()
-                self.update_plot4()
-                self.update_plot5()
-                self.update_plot6()
+                self.init_plot3()
+                self.init_plot4()
+                self.init_plot5()
+                self.init_plot6()
+                self.init_plots = True
+
+            self.update_plot2()
+            self.update_plot3()
+            self.update_plot4()
+            self.update_plot5()
+            self.update_plot6()
             self.after(self.sample_time, self.update_plots)
         else:
             self.ts_running = True
@@ -779,42 +913,81 @@ class App(ttk.Frame):
         self.centroid_label.config(text=f"{self.centroid_x:.3f}")
 
     def init_plot2(self):
-        self.absorb.set_data(self.x_ab, self.y_abs)
+        self.plot2_absorb.set_data(self.x_ab, self.y_abs)
         if self.centroid_x:
-            self.center.set_data([self.centroid_x], [self.centroid_y])
+            self.plot2_center.set_data([self.centroid_x], [self.centroid_y])
         self.ax2.relim()
         self.ax2.autoscale_view()
         self.canvas2.draw()
-        self.init_plots = True
 
-    def update_plot2(self):
-        self.absorb.set_data(self.x_ab, self.y_abs)
-        if self.centroid_x:
-            self.center.set_data([self.centroid_x], [self.centroid_y])
-        self.canvas2.draw()
-
-    def update_plot3(self):
-        self.timeseries.set_data(self.times, self.centroids)
+    def init_plot3(self):
+        self.plot3_time.set_data(self.times, self.centroids)
         self.ax3.relim()
         self.ax3.autoscale_view()
         self.canvas3.draw()
 
-    def update_plot4(self):
-        self.intensity.set_data(self.times, self.intensities)
+    def init_plot4(self):
+        self.plot4_intensity.set_data(self.times, self.intensities)
         self.ax4.relim()
         self.ax4.autoscale_view()
         self.canvas4.draw()
 
-    def update_plot5(self):
-        self.lowest.set_data(self.times, self.mins)
+    def init_plot5(self):
+        self.plot5_lowest.set_data(self.times, self.mins)
         self.ax5.relim()
         self.ax5.autoscale_view()
         self.canvas5.draw()
 
-    def update_plot6(self):
-        self.area_plot.set_data(self.times, self.area_ratios)
+    def init_plot6(self):
+        self.plot6_area.set_data(self.times, self.area_ratios)
         self.ax6.relim()
         self.ax6.autoscale_view()
+        self.canvas6.draw()
+
+    def update_plot2(self):
+        self.plot2_absorb.set_data(self.x_ab, self.y_abs)
+        if self.centroid_x:
+            self.plot2_center.set_data([self.centroid_x], [self.centroid_y])
+        self.canvas2.draw()
+
+    def update_plot3(self):
+        xmin, xmax = self.ax3.get_xlim()
+        if self.times[-1] % self.scale_factor_x == 0:
+            new_xmax = self.times[-1] + self.scale_factor_x
+            if new_xmax > xmax:
+                self.ax3.set_xlim(xmin, new_xmax)
+
+        self.plot3_time.set_data(self.times, self.centroids)
+        self.canvas3.draw()
+
+    def update_plot4(self):
+        xmin, xmax = self.ax4.get_xlim()
+        if self.times[-1] % self.scale_factor_x == 0:
+            new_xmax = self.times[-1] + self.scale_factor_x
+            if new_xmax > xmax:
+                self.ax4.set_xlim(xmin, new_xmax)
+
+        self.plot4_intensity.set_data(self.times, self.intensities)
+        self.canvas4.draw()
+
+    def update_plot5(self):
+        xmin, xmax = self.ax5.get_xlim()
+        if self.times[-1] % self.scale_factor_x == 0:
+            new_xmax = self.times[-1] + self.scale_factor_x
+            if new_xmax > xmax:
+                self.ax5.set_xlim(xmin, new_xmax)
+
+        self.plot5_lowest.set_data(self.times, self.mins)
+        self.canvas5.draw()
+
+    def update_plot6(self):
+        xmin, xmax = self.ax6.get_xlim()
+        if self.times[-1] % self.scale_factor_x == 0:
+            new_xmax = self.times[-1] + self.scale_factor_x
+            if new_xmax > xmax:
+                self.ax6.set_xlim(xmin, new_xmax)
+
+        self.plot6_area.set_data(self.times, self.area_ratios)
         self.canvas6.draw()
 
     def stop_absorb(self):
@@ -955,9 +1128,7 @@ class App(ttk.Frame):
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("FiberX")
-    # root.geometry("1920x1080")
     root.state("zoomed")
-    # root.attributes("-fullscreen", True)
 
     azure_path = resource_path("azure/azure.tcl")
     root.tk.call("source", azure_path)
