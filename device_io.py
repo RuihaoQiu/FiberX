@@ -19,7 +19,7 @@ class SignalGenerator:
         self.int_time = int_time
         source_path = ".\SeaBreeze.dll"
         self.lib = cdll.LoadLibrary(source_path)
-        self.devcount = self.lib.seabreeze_open_all_spectrometers(0)
+        self.devcount = self.open_spectrometers()
         self.lib.seabreeze_set_laser_power(0, 0, 500)
         self.wavelength = (c_double * self.n_length)()
         self.lightspec = (c_double * self.n_length)()
@@ -38,6 +38,9 @@ class SignalGenerator:
                 self.index, 0, self.wavelength, self.n_length
             )
             self.lib.seabreeze_set_laser_power(self.index, 0, 0)
+
+    def open_spectrometers(self):
+        self.lib.seabreeze_open_all_spectrometers(0)
 
     def close_spectrometers(self):
         # 关闭光谱仪

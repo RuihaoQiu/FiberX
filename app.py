@@ -42,10 +42,12 @@ class App(ttk.Frame):
     def __init__(self, parent):
         ttk.Frame.__init__(self)
         self.running = True
-        self.ts_running = True
+        self.ts_running = False
         self.int_time = 200
         self.sample_time = 1000
         self.diff = 25
+        self.ini_range1 = 500
+        self.ini_range2 = 700
         self.ini_position = 700
         self.scale_factor_x = 50
         self.position = None
@@ -83,14 +85,12 @@ class App(ttk.Frame):
             self.bright_folder = os.path.join(self.folder_path, "bright")
             self.results_folder = os.path.join(self.folder_path, "results")
         else:
-            self.folder_path = None
+            self.folder_path = "."
             self.dark_folder = None
             self.bright_folder = None
             self.results_folder = None
 
-        # self.df = pd.read_csv("../time_samples.csv")
-
-        for index in [0, 1]:
+        for index in [0, 1, 2]:
             self.columnconfigure(index=index, weight=1)
             self.rowconfigure(index=index, weight=1)
 
@@ -100,6 +100,7 @@ class App(ttk.Frame):
         self.build_input_block()
         self.build_dark_block()
         self.build_bright_block()
+        self.build_range_block()
         self.build_control_block()
         self.build_display_block()
         self.build_plot_block()
@@ -126,37 +127,38 @@ class App(ttk.Frame):
         self.sample_entry.insert(0, self.sample_time)
         self.sample_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
 
-        start_button = ttk.Button(
+        self.start_button = ttk.Button(
             input_frame,
             text="开始",
             command=self.start_real,
             style="Accent.TButton",
         )
-        start_button.grid(
-            row=2, column=0, padx=(10, 5), pady=5, columnspan=1, sticky="ew"
+        self.start_button.grid(
+            row=2, column=0, padx=10, pady=5, columnspan=1, sticky="ew"
         )
 
-        stop_button = ttk.Button(
+        self.stop_button = ttk.Button(
             input_frame,
             text="暂停",
             command=self.stop_real,
             style="Accent.TButton",
+            state=tk.DISABLED,
         )
-        stop_button.grid(
-            row=2, column=1, padx=(5, 15), pady=5, columnspan=1, sticky="ew"
+        self.stop_button.grid(
+            row=2, column=1, padx=10, pady=5, columnspan=1, sticky="ew"
         )
 
     def select_dark_folder(self):
-        self.dark_folder = filedialog.askdirectory()
+        self.dark_folder = filedialog.askdirectory(initialdir=self.folder_path)
         self.build_dark_block()
 
     def select_bright_folder(self):
-        self.bright_folder = filedialog.askdirectory()
+        self.bright_folder = filedialog.askdirectory(initialdir=self.folder_path)
         self.build_bright_block()
 
     def init_real(self):
-        int_time = int(self.int_entry.get())
-        self.signal_generator = SignalGenerator(int_time=int_time)
+        self.int_time = int(self.int_entry.get())
+        self.signal_generator = SignalGenerator(int_time=self.int_time)
         self.signal_generator.start()
         self.x = self.signal_generator.generate_x()
         self.y = self.signal_generator.generate_y()
@@ -168,6 +170,7 @@ class App(ttk.Frame):
         self.init_ratio()
 
     def start_real(self):
+        self.stop_button.config(state=tk.NORMAL)
         if self.init_absorb == False:
             self.init_real()
             self.update_real()
@@ -188,6 +191,7 @@ class App(ttk.Frame):
             self.running = True
 
     def stop_real(self):
+        self.stop_button.config(state=tk.DISABLED)
         self.signal_generator.close_spectrometers()
         self.init_absorb = False
         self.running = False
@@ -209,7 +213,7 @@ class App(ttk.Frame):
         self.build_bright_block()
 
     def build_dark_block(self):
-        dark_frame = ttk.LabelFrame(self, text="暗光谱", padding=(20, 5), height=300)
+        dark_frame = ttk.LabelFrame(self, text="暗光谱", padding=(20, 5))
         dark_frame.grid(
             row=1,
             column=0,
@@ -218,7 +222,7 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
-        self.dark_canvas = tk.Canvas(dark_frame, width=100, height=180)
+        self.dark_canvas = tk.Canvas(dark_frame, width=100, height=100)
         scrollbar = ttk.Scrollbar(
             dark_frame, orient="vertical", command=self.dark_canvas.yview
         )
@@ -250,9 +254,7 @@ class App(ttk.Frame):
             command=self.select_dark_folder,
             style="Accent.TButton",
         )
-        select_button.pack(
-            side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=(10, 5), pady=5
-        )
+        select_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=10, pady=5)
 
         save_dark_button = ttk.Button(
             buttons_frame,
@@ -261,7 +263,7 @@ class App(ttk.Frame):
             style="Accent.TButton",
         )
         save_dark_button.pack(
-            side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=(5, 15), pady=5
+            side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=10, pady=5
         )
 
         var = tk.StringVar()
@@ -313,10 +315,12 @@ class App(ttk.Frame):
             self.plot1_dark.set_data([], [])
             self.canvas1.draw()
 
+        if len(self.y_s) > 0:
+            self.init_ratio()
+            self.update_ratio()
+
     def build_bright_block(self):
-        bright_frame = ttk.LabelFrame(
-            self, text="参考光谱", padding=(20, 5), height=300
-        )
+        bright_frame = ttk.LabelFrame(self, text="参考光谱", padding=(20, 5))
         bright_frame.grid(
             row=2,
             column=0,
@@ -325,7 +329,7 @@ class App(ttk.Frame):
             sticky="nsew",
         )
 
-        self.bright_canvas = tk.Canvas(bright_frame, width=100, height=180)
+        self.bright_canvas = tk.Canvas(bright_frame, width=100, height=200)
         scrollbar = ttk.Scrollbar(
             bright_frame, orient="vertical", command=self.bright_canvas.yview
         )
@@ -357,9 +361,7 @@ class App(ttk.Frame):
             command=self.select_bright_folder,
             style="Accent.TButton",
         )
-        select_button.pack(
-            side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=(10, 5), pady=5
-        )
+        select_button.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE, padx=10, pady=5)
 
         save_bright_button = ttk.Button(
             buttons_frame,
@@ -367,7 +369,7 @@ class App(ttk.Frame):
             command=self.save_bright,
             style="Accent.TButton",
         )
-        save_bright_button.pack(side=tk.LEFT, fill=tk.BOTH, padx=(5, 15), pady=5)
+        save_bright_button.pack(side=tk.LEFT, fill=tk.BOTH, padx=10, pady=5)
 
         var = tk.StringVar()
         if self.bright_folder:
@@ -415,16 +417,133 @@ class App(ttk.Frame):
             self.ax1.relim()
             self.ax1.autoscale_view()
             self.canvas1.draw()
-            self.area_ref = np.dot(self.x_ref, self.y_ref)
+            # self.area_ref = np.dot(self.x_ref, self.y_ref)
         except FileNotFoundError:
             self.y_refs = []
             self.plot1_ref.set_data([], [])
             self.canvas1.draw()
 
+        if len(self.y_s) > 0:
+            self.init_ratio()
+            self.update_ratio()
+
+    def build_range_block(self):
+        range_frame = ttk.LabelFrame(self, text="面积范围", padding=(20, 5))
+        range_frame.grid(
+            row=3,
+            column=0,
+            padx=(10, 10),
+            pady=5,
+            sticky="nsew",
+        )
+
+        label = ttk.Label(range_frame, text="范围(nm):")
+        label.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.range1 = ttk.Entry(range_frame, width=7)
+        self.range1.insert(0, self.ini_range1)
+        self.range1.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+        label = ttk.Label(range_frame, text="-")
+        label.grid(row=0, column=2, padx=0, pady=0, sticky="ew")
+        self.range2 = ttk.Entry(range_frame, width=7)
+        self.range2.insert(0, self.ini_range2)
+        self.range2.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+
+    def build_control_block(self):
+        control_frame = ttk.LabelFrame(self, text="控制", padding=(20, 5), height=300)
+        control_frame.grid(
+            row=4,
+            column=0,
+            padx=(10, 10),
+            pady=5,
+            sticky="nsew",
+        )
+
+        label = ttk.Label(control_frame, text="质心范围(+/-):")
+        label.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.diff_entry = ttk.Entry(control_frame, width=7)
+        self.diff_entry.insert(0, self.diff)
+        self.diff_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+
+        label = ttk.Label(control_frame, text="强度位置(nm):")
+        label.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+        self.position_entry = ttk.Entry(control_frame, width=7)
+        self.position_entry.insert(0, self.ini_position)
+        self.position_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+
+        start_ts_button = ttk.Button(
+            control_frame,
+            text="开始时序",
+            command=self.start_absorb,
+            style="Accent.TButton",
+        )
+        start_ts_button.grid(
+            row=3, column=0, padx=10, pady=5, columnspan=1, sticky="ew"
+        )
+
+        self.stop_ts_button = ttk.Button(
+            control_frame,
+            text="暂停时序",
+            command=self.stop_absorb,
+            style="Accent.TButton",
+            state=tk.DISABLED,
+        )
+        self.stop_ts_button.grid(
+            row=3, column=1, padx=10, pady=5, columnspan=1, sticky="ew"
+        )
+
+        clean_button = ttk.Button(
+            control_frame,
+            text="清除时序",
+            command=self.clean_plots,
+            style="Accent.TButton",
+        )
+        clean_button.grid(row=4, column=0, padx=10, pady=5, columnspan=1, sticky="ew")
+
+        save_button = ttk.Button(
+            control_frame,
+            text="保存数据",
+            command=lambda: self.save_data(),
+            style="Accent.TButton",
+        )
+        save_button.grid(row=4, column=1, padx=10, pady=5, columnspan=1, sticky="ew")
+
+    def start_absorb(self):
+        self.stop_ts_button.config(state=tk.NORMAL)
+        self.sample_time = int(self.sample_entry.get())
+        self.diff = int(self.diff_entry.get())
+        self.position = int(self.position_entry.get())
+        closest_x = self.find_interval(self.x, self.position)
+        self.idx_y = list(self.x).index(closest_x)
+
+        # self.area_ref = np.dot(self.x_ref, self.y_ref)
+
+        if not self.ts_running:
+            self.ts_running = True
+        self.update_plots()
+
+    def clean_plots(self):
+        self.times, self.centroids, self.intensities, self.mins, self.area_ratios = (
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
+        self.plot3_time.set_data([], [])
+        self.canvas3.draw()
+        self.plot4_intensity.set_data([], [])
+        self.canvas4.draw()
+        self.plot5_lowest.set_data([], [])
+        self.canvas5.draw()
+        self.plot6_area.set_data([], [])
+        self.canvas6.draw()
+        self.ts_running = False
+
     def build_display_block(self):
         real_frame = ttk.LabelFrame(self, text="实时数据", padding=(20, 5))
         real_frame.grid(
-            row=4,
+            row=5,
             column=0,
             padx=(10, 10),
             pady=5,
@@ -450,79 +569,6 @@ class App(ttk.Frame):
 
         self.centroid_label = ttk.Label(real_frame, text="", font=("Arial", 18))
         self.centroid_label.grid(row=2, column=1, padx=10, pady=(0, 10), sticky="ew")
-
-    def build_control_block(self):
-        control_frame = ttk.LabelFrame(self, text="控制", padding=(20, 5), height=300)
-        control_frame.grid(
-            row=3,
-            column=0,
-            padx=(10, 10),
-            pady=5,
-            sticky="nsew",
-        )
-
-        label = ttk.Label(control_frame, text="质心范围:")
-        label.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        self.diff_entry = ttk.Entry(control_frame, width=7)
-        self.diff_entry.insert(0, self.diff)
-        self.diff_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
-
-        label = ttk.Label(control_frame, text="强度位置:")
-        label.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        self.position_entry = ttk.Entry(control_frame, width=7)
-        self.position_entry.insert(0, self.ini_position)
-        self.position_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
-
-        start_button = ttk.Button(
-            control_frame,
-            text="开始时序",
-            command=self.start_absorb,
-            style="Accent.TButton",
-        )
-        start_button.grid(row=2, column=0, padx=10, pady=5, columnspan=1, sticky="ew")
-
-        stop_button = ttk.Button(
-            control_frame,
-            text="暂停时序",
-            command=self.stop_absorb,
-            style="Accent.TButton",
-        )
-        stop_button.grid(row=2, column=1, padx=10, pady=5, columnspan=1, sticky="ew")
-
-        clean_button = ttk.Button(
-            control_frame,
-            text="清除时序",
-            command=self.clean_plots,
-            style="Accent.TButton",
-        )
-        clean_button.grid(row=3, column=0, padx=10, pady=5, columnspan=1, sticky="ew")
-
-        save_button = ttk.Button(
-            control_frame,
-            text="保存数据",
-            command=lambda: self.save_data(),
-            style="Accent.TButton",
-        )
-        save_button.grid(row=3, column=1, padx=10, pady=5, columnspan=1, sticky="ew")
-
-    def start_absorb(self):
-        self.sample_time = int(self.sample_entry.get())
-        self.diff = int(self.diff_entry.get())
-        self.position = int(self.position_entry.get())
-        closest_x = self.find_interval(self.x, self.position)
-        self.idx_y = list(self.x).index(closest_x)
-        self.update_plots()
-
-    def clean_plots(self):
-        self.times, self.centroids, self.intensities, self.mins = [], [], [], []
-        self.plot3_time.set_data([], [])
-        self.canvas3.draw()
-        self.plot4_intensity.set_data([], [])
-        self.canvas4.draw()
-        self.plot5_lowest.set_data([], [])
-        self.canvas5.draw()
-        self.plot6_area.set_data([], [])
-        self.canvas6.draw()
 
     def build_plot_block(self):
         self.paned = ttk.PanedWindow(self)
@@ -580,11 +626,11 @@ class App(ttk.Frame):
             style="Accent.TButton",
             width=10,
         )
-        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+        auto_button.grid(row=3, column=0, padx=10, pady=0, sticky="w")
 
         toolbar = NavigationToolbar2Tk(self.canvas1, tab1, pack_toolbar=False)
         toolbar.update()
-        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
+        toolbar.grid(row=3, column=0, padx=110, pady=0, sticky="w")
 
     def build_tab2(self):
         tab2 = ttk.Frame(self.notebook)
@@ -619,11 +665,11 @@ class App(ttk.Frame):
             style="Accent.TButton",
             width=10,
         )
-        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+        auto_button.grid(row=3, column=0, padx=10, pady=0, sticky="w")
 
         toolbar = NavigationToolbar2Tk(self.canvas2, tab2, pack_toolbar=False)
         toolbar.update()
-        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
+        toolbar.grid(row=3, column=0, padx=110, pady=0, sticky="w")
 
     def build_tab3(self):
         tab3 = ttk.Frame(self.notebook)
@@ -657,11 +703,11 @@ class App(ttk.Frame):
             style="Accent.TButton",
             width=10,
         )
-        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+        auto_button.grid(row=3, column=0, padx=10, pady=0, sticky="w")
 
         toolbar = NavigationToolbar2Tk(self.canvas3, tab3, pack_toolbar=False)
         toolbar.update()
-        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
+        toolbar.grid(row=3, column=0, padx=110, pady=0, sticky="w")
 
     def build_tab4(self):
         tab4 = ttk.Frame(self.notebook)
@@ -695,11 +741,11 @@ class App(ttk.Frame):
             style="Accent.TButton",
             width=10,
         )
-        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+        auto_button.grid(row=3, column=0, padx=10, pady=0, sticky="w")
 
         toolbar = NavigationToolbar2Tk(self.canvas4, tab4, pack_toolbar=False)
         toolbar.update()
-        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
+        toolbar.grid(row=3, column=0, padx=110, pady=0, sticky="w")
 
     def build_tab5(self):
         tab5 = ttk.Frame(self.notebook)
@@ -733,11 +779,11 @@ class App(ttk.Frame):
             style="Accent.TButton",
             width=10,
         )
-        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+        auto_button.grid(row=3, column=0, padx=10, pady=0, sticky="w")
 
         toolbar = NavigationToolbar2Tk(self.canvas5, tab5, pack_toolbar=False)
         toolbar.update()
-        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
+        toolbar.grid(row=3, column=0, padx=110, pady=0, sticky="w")
 
     def build_tab6(self):
         tab6 = ttk.Frame(self.notebook)
@@ -771,13 +817,14 @@ class App(ttk.Frame):
             style="Accent.TButton",
             width=10,
         )
-        auto_button.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+        auto_button.grid(row=3, column=0, padx=10, pady=0, sticky="w")
 
         toolbar = NavigationToolbar2Tk(self.canvas6, tab6, pack_toolbar=False)
         toolbar.update()
-        toolbar.grid(row=3, column=0, padx=100, pady=0, sticky="w")
+        toolbar.grid(row=3, column=0, padx=110, pady=0, sticky="w")
 
     def auto_rescale1(self):
+        self.ax1.set_xlim(min(self.x) - 50, max(self.x) + 50)
         y = list(self.y_s) + list(self.y_darks) + list(self.y_refs)
         delta = max(y) - min(y)
         self.ax1.set_ylim(
@@ -787,6 +834,7 @@ class App(ttk.Frame):
         self.canvas1.draw()
 
     def auto_rescale2(self):
+        self.ax1.set_xlim(min(self.x) - 50, max(self.x) + 50)
         delta = max(self.y_abs) - min(self.y_abs)
         self.ax2.set_ylim(
             min(self.y_abs) - 0.1 * delta,
@@ -872,36 +920,44 @@ class App(ttk.Frame):
                 self.min_idx_display = self.min_idx
                 self.update_min_value()
 
-            self.centroid_x, self.centroid_y = self.find_centroid(
-                x=self.x_ab, y=self.y_abs, min_idx=self.min_idx_display, diff=self.diff
-            )
-            self.centroids.append(self.centroid_x)
-            self.centroids_sm = gaussian_filter1d(self.centroids, sigma=10)
+            try:
+                self.centroid_x, self.centroid_y = self.find_centroid(
+                    x=self.x_ab,
+                    y=self.y_abs,
+                    min_idx=self.min_idx_display,
+                    diff=self.diff,
+                )
+                self.centroids.append(self.centroid_x)
+                self.centroids_sm = gaussian_filter1d(self.centroids, sigma=10)
 
-            self.intensities.append(self.y_abs[self.idx_y])
-            self.intensities_sm = gaussian_filter1d(self.intensities, sigma=10)
+                self.intensities.append(self.y_abs[self.idx_y])
+                self.intensities_sm = gaussian_filter1d(self.intensities, sigma=10)
 
-            self.mins.append(self.x_ab[self.min_idx])
+                self.mins.append(self.x_ab[self.min_idx])
 
-            area_current = np.dot(self.x, self.y)
-            self.area_ratios.append(area_current / self.area_ref * 100)
+                area_current = np.dot(self.x, self.y)
+                self.area_ratios.append(area_current / self.area_ref * 100)
 
-            self.times = list(range(len(self.centroids)))
+                self.times = list(range(len(self.centroids)))
 
-            self.update_center_value()
-            if not self.init_plots:
-                self.init_plot2()
-                self.init_plot3()
-                self.init_plot4()
-                self.init_plot5()
-                self.init_plot6()
-                self.init_plots = True
+                self.update_center_value()
+                if not self.init_plots:
+                    self.init_plot2()
+                    self.init_plot3()
+                    self.init_plot4()
+                    self.init_plot5()
+                    self.init_plot6()
+                    self.init_plots = True
 
-            self.update_plot2()
-            self.update_plot3()
-            self.update_plot4()
-            self.update_plot5()
-            self.update_plot6()
+                self.update_plot2()
+                self.update_plot3()
+                self.update_plot4()
+                self.update_plot5()
+                self.update_plot6()
+
+            except ValueError:
+                pass
+
             self.after(self.sample_time, self.update_plots)
         else:
             self.ts_running = True
@@ -992,6 +1048,7 @@ class App(ttk.Frame):
 
     def stop_absorb(self):
         self.ts_running = False
+        self.stop_ts_button.configure(state=tk.DISABLED)
 
     def fix_min(self):
         self.fix_minimum = not self.fix_minimum
@@ -1032,7 +1089,9 @@ class App(ttk.Frame):
     def save_data(self):
         ininame = make_results_file()
         file_path = filedialog.asksaveasfile(
-            initialfile=ininame, defaultextension=".xlsx"
+            initialdir=self.folder_path,
+            initialfile=ininame,
+            defaultextension=".xlsx",
         )
         self.save_to_excel(file_path.name)
 
