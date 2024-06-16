@@ -46,8 +46,8 @@ class App(ttk.Frame):
         self.int_time = 200
         self.sample_time = 1000
         self.diff = 25
-        self.ini_range1 = 500
-        self.ini_range2 = 700
+        self.range_low = 500
+        self.range_high = 700
         self.ini_position = 700
         self.scale_factor_x = 50
         self.position = None
@@ -417,7 +417,6 @@ class App(ttk.Frame):
             self.ax1.relim()
             self.ax1.autoscale_view()
             self.canvas1.draw()
-            # self.area_ref = np.dot(self.x_ref, self.y_ref)
         except FileNotFoundError:
             self.y_refs = []
             self.plot1_ref.set_data([], [])
@@ -440,13 +439,13 @@ class App(ttk.Frame):
         label = ttk.Label(range_frame, text="范围(nm):")
         label.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
         self.range1 = ttk.Entry(range_frame, width=7)
-        self.range1.insert(0, self.ini_range1)
+        self.range1.insert(0, self.range_low)
         self.range1.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
         label = ttk.Label(range_frame, text="-")
         label.grid(row=0, column=2, padx=0, pady=0, sticky="ew")
         self.range2 = ttk.Entry(range_frame, width=7)
-        self.range2.insert(0, self.ini_range2)
+        self.range2.insert(0, self.range_high)
         self.range2.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
 
     def build_control_block(self):
@@ -516,11 +515,25 @@ class App(ttk.Frame):
         closest_x = self.find_interval(self.x, self.position)
         self.idx_y = list(self.x).index(closest_x)
 
-        # self.area_ref = np.dot(self.x_ref, self.y_ref)
+        self.calculate_ref_area()
 
         if not self.ts_running:
             self.ts_running = True
         self.update_plots()
+
+    def calculate_ref_area(self):
+        self.range_low = int(self.range1.get())
+        closest_range1 = self.find_interval(self.x, self.range_low)
+        self.range1_idx = list(self.x).index(closest_range1)
+
+        self.range_high = int(self.range2.get())
+        closest_range2 = self.find_interval(self.x, self.range_high)
+        self.range2_idx = list(self.x).index(closest_range2)
+
+        self.area_ref = np.dot(
+            self.x_ref[self.range1_idx : self.range2_idx],
+            self.y_refs[self.range1_idx : self.range2_idx],
+        )
 
     def clean_plots(self):
         self.times, self.centroids, self.intensities, self.mins, self.area_ratios = (
@@ -935,7 +948,10 @@ class App(ttk.Frame):
 
                 self.mins.append(self.x_ab[self.min_idx])
 
-                area_current = np.dot(self.x, self.y)
+                area_current = np.dot(
+                    self.x[self.range1_idx : self.range2_idx],
+                    self.y_s[self.range1_idx : self.range2_idx],
+                )
                 self.area_ratios.append(area_current / self.area_ref * 100)
 
                 self.times = list(range(len(self.centroids)))
@@ -1129,6 +1145,7 @@ class App(ttk.Frame):
                 "参考光谱": self.bright_file,
                 "质心范围(+/-)": self.diff,
                 "强度位置": self.position,
+                "面积范围": f"{self.range_low}-{self.range_high}",
                 "固定最低点": self.x_ab[self.min_idx_display],
                 "数据文件路径": file_path,
             }.items()
